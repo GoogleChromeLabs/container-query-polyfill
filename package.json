@@ -1,0 +1,13 @@
+{
+  "name": "cqfill",
+  "version": "0.0.1",
+  "description": "",
+  "scripts": {
+    "build": "esbuild --bundle ./cqfill.ts --outfile=cqfill.js --format=esm"
+  },
+  "author": "Surma <surma@surma.dev>",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "esbuild": "^0.13.13"
+  }
+}
