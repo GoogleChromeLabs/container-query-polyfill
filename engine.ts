@@ -44,23 +44,6 @@ function isQueryFullfilled(
   );
 }
 
-// function findClosestContainer(el: Element, name?: string): Element | undefined {
-//   // Start at parent, and walk the tree upwards.
-//   while(el) {
-//     el = el.parentElement;
-//     // If ascendant is not a container, keep walking
-//     if(!containers.has(el)) continue;
-//     // Ascendant is a container!
-//     // If no name was given, return the first container we can find.
-//     if(!name) return el;
-//     // Otherwise, check it’s the container with the right name.
-//     const containerNames = containers.get(el)!
-//     if(containerNames.includes(name)) return el;
-//   }
-//   // If we reach the root, no container was found.
-//   return undefined;
-// }
-
 function isAncestor(potentialAncestor: Element, descendant: Element): boolean {
   while (descendant) {
     // We explicitly start at the parent of `descendant`.
@@ -83,15 +66,16 @@ function registerContainerQuery(cqd: ContainerQueryDescriptor) {
   queries.push(cqd);
 }
 const containerRO = new ResizeObserver((entries) => {
+  const querySet = new Set(queries);
   for (const entry of entries) {
     const container = entry.target;
-    for (const query of queries) {
+    for (const query of querySet) {
       for (const { selector } of query.rules) {
         const els = document.querySelectorAll(selector);
         for (const el of els) {
           if (!isAncestor(container, el)) continue;
-          // *If* the container query had a name, check that we have the container
-          // with that name.
+          // *If* the container query had a name, check that we have the
+          // container with that name.
           if (query.name) {
             const containerNames = containers.get(container)!;
             if (!containerNames.includes(query.name)) continue;
@@ -100,27 +84,12 @@ const containerRO = new ResizeObserver((entries) => {
             query.className,
             isQueryFullfilled(query.breakPoint, entry)
           );
+          querySet.delete(query);
         }
       }
     }
   }
 });
-
-// function registerContainerQuery(
-//   cq: ContainerQueryDescriptor,
-//   rules: Rule[],
-//   {name = ""} = {}
-// ) {
-//   if (!queries.has(el)) {
-//     queries.set(el, []);
-//   }
-//   queries.get(el)!.push({
-//     className,
-//     name,
-//     breakPoint,
-//   });
-//   containerRO.observe(el);
-// }
 
 interface WatchedSelector {
   selector: string;
@@ -178,7 +147,7 @@ export function transpileStyleSheet(sheetSrc: string): string {
           /container-name: ([^;]+);/.exec(rule.block.contents)?.[1] ?? uid();
         const newBlock = rule.block.contents.replace(
           "container-type",
-          "containment"
+          "contain"
         );
         replacePart(rule.block.startIndex, rule.block.endIndex, newBlock, p);
         watchedContainerSelectors.push({
@@ -201,9 +170,9 @@ function replacePart(
   p: AdhocParser
 ) {
   p.sheetSrc = p.sheetSrc.slice(0, start) + replacement + p.sheetSrc.slice(end);
-  // If we are pointing past the end of the affected section, we need to recalculate
-  // the string pointer. Pointing to something inside the section that’s being replaced
-  // is undefined behavior. Sue me.
+  // If we are pointing past the end of the affected section, we need to
+  // recalculate the string pointer. Pointing to something inside the section
+  // that’s being replaced is undefined behavior. Sue me.
   if (p.index >= end) {
     const delta = p.index - end;
     p.index = start + replacement.length + delta;

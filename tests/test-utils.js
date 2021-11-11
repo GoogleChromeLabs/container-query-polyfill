@@ -27,7 +27,7 @@ export async function testSuite(name, cb) {
     await cb();
   } catch (e) {
     console.error(e);
-    fail(`${name}: ${e.msg}`);
+    fail(`${name}: ${e}`);
     return;
   }
   success();
