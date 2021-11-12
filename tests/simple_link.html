@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<link rel="stylesheet" href="./simple_link.css" />
+<div style="width: 100px">
+  <h1>Ohai</h1>
+</div>
+<script type="module">
+  import { doubleRaf, testSuite, assert, nextEvent } from "./test-utils.js";
+  import "/cqfill.js";
+
+  testSuite("Manual transpiling", async () => {
+    const link = document.querySelector("link");
+    if (
+      ![...document.styleSheets].some(
+        (stylesheet) => stylesheet.href === link.href
+      )
+    ) {
+      await nextEvent(link, "load");
+    }
+
+    {
+      await doubleRaf();
+      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      assert(
+        fontSize === "20px",
+        `Expected font-size to be 20px, got ${fontSize}`
+      );
+    }
+    document.querySelector("div").style = "width: 300px";
+    {
+      await doubleRaf();
+      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      assert(
+        fontSize === "30px",
+        `Expected font-size to be 30px, got ${fontSize}`
+      );
+    }
+  });
+</script>
