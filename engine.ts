@@ -141,25 +141,52 @@ export function transpileStyleSheet(sheetSrc: string): string {
       registerContainerQuery(query);
     } else {
       const rule = parseRule(p);
-      if (rule.block.contents.includes("container-")) {
-        const name =
-          /container-name: ([^;]+);/.exec(rule.block.contents)?.[1] ?? uid();
-        const newBlock = rule.block.contents.replace(
-          "container-type",
-          "contain"
-        );
-        replacePart(rule.block.startIndex, rule.block.endIndex, newBlock, p);
-        watchedContainerSelectors.push({
-          name,
-          selector: rule.selector,
-        });
-        for (const el of document.querySelectorAll(rule.selector)) {
-          registerContainer(el, name);
-        }
-      }
+      handleContainerProps(rule, p);
     }
   }
   return p.sheetSrc;
+}
+
+function handleContainerProps(rule: Rule, p) {
+  const hasLongHand = rule.block.contents.includes("container-");
+  const hasShortHand = rule.block.contents.includes("container:");
+  if (!hasLongHand && !hasShortHand) return;
+  let containerName, containerType;
+  if (hasLongHand) {
+    containerName = /container-name: ([^;]+);/.exec(rule.block.contents)?.[1];
+    rule.block.contents = rule.block.contents.replace(
+      "container-type",
+      "contain"
+    );
+  }
+  if (hasShortHand) {
+    const containerShorthand = /container: ([^;]+);/.exec(
+      rule.block.contents
+    )?.[1];
+    [containerType, containerName] = containerShorthand
+      .split("/")
+      .map((v) => v.trim());
+    rule.block.contents = rule.block.contents.replace(
+      /container: ([^;]+);/,
+      `contain: ${containerType};`
+    );
+  }
+  if (!containerName) {
+    containerName = uid();
+  }
+  replacePart(
+    rule.block.startIndex,
+    rule.block.endIndex,
+    rule.block.contents,
+    p
+  );
+  watchedContainerSelectors.push({
+    name: containerName,
+    selector: rule.selector,
+  });
+  for (const el of document.querySelectorAll(rule.selector)) {
+    registerContainer(el, containerName);
+  }
 }
 
 function replacePart(
