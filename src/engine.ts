@@ -51,9 +51,12 @@ function isQueryFullfilled(
 ): boolean {
   let borderBox;
   if ("borderBoxSize" in entry) {
-    // At the time of writing, the array will always be length one.
-    borderBox = entry.borderBoxSize[0];
+    // At the time of writing, the array will always be length one in Chrome.
+    // In Firefox, it won’t be an array, but a single object.
+    borderBox = entry.borderBoxSize?.[0] ?? entry.borderBoxSize;
   } else {
+    // Safari doesn’t have borderBoxSize at all, but only offers `contentRect`,
+    // so we have to do some maths ourselves.
     const computed = getComputedStyle(entry.target);
     borderBox = {
       // FIXME: This will if you are not in tblr writing mode
