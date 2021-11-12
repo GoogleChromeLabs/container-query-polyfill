@@ -63,6 +63,7 @@ function isQueryFullfilled(
       blockSize: entry.contentRect.height,
       inlineSize: entry.contentRect.width,
     };
+    // Cut off the "px" suffix from the computed styles.
     borderBox.blockSize +=
       parseInt(computed.paddingBlockStart.slice(0, -2)) +
       parseInt(computed.paddingBlockEnd.slice(0, -2));
