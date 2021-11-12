@@ -44,16 +44,7 @@ function isQueryFullfilled(
   );
 }
 
-function isAncestor(potentialAncestor: Element, descendant: Element): boolean {
-  while (descendant) {
-    // We explicitly start at the parent of `descendant`.
-    descendant = descendant.parentElement;
-    if (descendant === potentialAncestor) return true;
-  }
-  return false;
-}
-
-function findContainer(el: Element, name?: string): Element | null {
+function findParentContainer(el: Element, name?: string): Element | null {
   while (el) {
     el = el.parentElement;
     if (!containerNames.has(el)) continue;
@@ -86,7 +77,7 @@ const containerRO = new ResizeObserver((entries) => {
     for (const { selector } of query.rules) {
       const els = document.querySelectorAll(selector);
       for (const el of els) {
-        const container = findContainer(el, query.name);
+        const container = findParentContainer(el, query.name);
         if (!container) continue;
         if (!changedContainers.has(container)) continue;
         const entry = changedContainers.get(container);
@@ -271,7 +262,7 @@ function parseIdentifier(p: AdhocParser): string {
   return match[0];
 }
 
-// `min-width` => `MinWidth`
+// This function does stuff like `min-width` => `MinWidth`
 function undashify(s: string): string {
   const v = s
     .replace(/-(\w)/, (_, l) => l.toUpperCase())

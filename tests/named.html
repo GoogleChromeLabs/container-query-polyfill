@@ -43,12 +43,12 @@
       }
       @container a (max-width: 300px) {
         h1 {
-          line-height: 40px;
+          line-height: 30px;
         }
       }
       @container a (min-width: 300px) {
         h1 {
-          line-height: 30px
+          line-height: 40px
         }
       }
     `);
@@ -58,50 +58,62 @@
     const b = document.querySelector("#b");
     const configs = [
       {
+        aWidth: 150,
+        bWidth: 150,
+        expectedPropValues: { fontSize: "20px", lineHeight: "30px" },
+      },
+      {
+        aWidth: 150,
+        bWidth: 250,
+        expectedPropValues: { fontSize: "30px", lineHeight: "30px" },
+      },
+      {
+        aWidth: 150,
+        bWidth: 350,
+        expectedPropValues: { fontSize: "30px", lineHeight: "30px" },
+      },
+      {
         aWidth: 250,
         bWidth: 150,
-        expectedLineHeight: "30px",
-        expectedFontSize: "20px",
+        expectedPropValues: { fontSize: "20px", lineHeight: "30px" },
       },
       {
         aWidth: 250,
         bWidth: 250,
-        expectedLineHeight: "30px",
-        expectedFontSize: "30px",
+        expectedPropValues: { fontSize: "30px", lineHeight: "30px" },
+      },
+      {
+        aWidth: 250,
+        bWidth: 350,
+        expectedPropValues: { fontSize: "30px", lineHeight: "30px" },
       },
       {
         aWidth: 350,
         bWidth: 150,
-        expectedLineHeight: "40px",
-        expectedFontSize: "20px",
+        expectedPropValues: { fontSize: "20px", lineHeight: "40px" },
       },
       {
         aWidth: 350,
         bWidth: 250,
-        expectedLineHeight: "40px",
-        expectedFontSize: "30px",
+        expectedPropValues: { fontSize: "30px", lineHeight: "40px" },
+      },
+      {
+        aWidth: 350,
+        bWidth: 350,
+        expectedPropValues: { fontSize: "30px", lineHeight: "40px" },
       },
     ];
-    for (const {
-      aWidth,
-      bWidth,
-      expectedFontSize,
-      expectedLineHeight,
-    } of configs) {
+    for (const { aWidth, bWidth, expectedPropValues } of configs) {
       a.style = `width: ${aWidth}px`;
       b.style = `width: ${bWidth}px`;
       await doubleRaf();
-      const { fontSize, lineHeight } = getComputedStyle(
-        document.querySelector("h1")
-      );
-      assert(
-        fontSize === expectedFontSize,
-        `Expected line-height to be ${expectedFontSize}, got ${fontSize}`
-      );
-      assert(
-        lineHeight === expectedLineHeight,
-        `Expected font-size to be ${expectedLineHeight}, got ${lineHeight}`
-      );
+      const computed = getComputedStyle(document.querySelector("h1"));
+      for (const [prop, expectedValue] of Object.entries(expectedPropValues)) {
+        assert(
+          computed[prop] === expectedValue,
+          `Expected ${prop} to be ${expectedValue}, got ${computed[prop]} (case: a=${aWidth}, b=${bWidth})`
+        );
+      }
     }
   });
 </script>
