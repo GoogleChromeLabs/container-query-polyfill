@@ -49,8 +49,24 @@ function isQueryFullfilled(
   breakpoint: BreakPoint,
   entry: ResizeObserverEntry
 ): boolean {
-  // At the time of writing, the array will always be length one.
-  const borderBox = entry.borderBoxSize[0];
+  let borderBox;
+  if ("borderBoxSize" in entry) {
+    // At the time of writing, the array will always be length one.
+    borderBox = entry.borderBoxSize[0];
+  } else {
+    const computed = getComputedStyle(entry.target);
+    borderBox = {
+      // FIXME: This will if you are not in tblr writing mode
+      blockSize: entry.contentRect.height,
+      inlineSize: entry.contentRect.width,
+    };
+    borderBox.blockSize +=
+      parseInt(computed.paddingBlockStart.slice(0, -2)) +
+      parseInt(computed.paddingBlockEnd.slice(0, -2));
+    borderBox.inlineSize +=
+      parseInt(computed.paddingInlineStart.slice(0, -2)) +
+      parseInt(computed.paddingInlineEnd.slice(0, -2));
+  }
   return comparators.get(breakpoint.measurement)!(
     borderBox,
     breakpoint.threshold
@@ -144,10 +160,12 @@ export function transpileStyleSheet(sheetSrc: string): string {
   while (true) {
     eatWhitespace(p);
     if (p.index >= p.sheetSrc.length) break;
-    const nextIdent = peekIdentifier(p);
-    if (nextIdent.startsWith("/*")) {
+    while (lookAhead("/*", p)) {
       eatComment(p);
-    } else if (nextIdent === "@container") {
+      eatWhitespace(p);
+    }
+    const nextIdent = peekIdentifier(p);
+    if (nextIdent === "@container") {
       const { query, startIndex, endIndex } = parseContainerQuery(p);
       const replacement = stringifyContainerQuery(query);
       replacePart(startIndex, endIndex, replacement, p);
@@ -221,6 +239,7 @@ function replacePart(
 function eatComment(p: AdhocParser) {
   assertString(p, "/*");
   eatUntil("*/", p);
+  assertString(p, "*/");
 }
 
 function eatUntil(s: string, p: AdhocParser): string {
