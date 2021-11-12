@@ -9,26 +9,28 @@
 
   testSuite("Manual transpiling", async () => {
     const parsed = transpileStyleSheet(`
-			div {
-				outline: 1px solid red;
-				resize: both;
-				overflow: auto;
-				container-type: size;
-			}
-			h1 {
-				font-size: 10px;
-			}
-			@container (min-width: 200px) {
-				h1 {
-					font-size: 30px;
-				}
-			}
-			@container (max-width: 200px) {
-				h1 {
-					font-size: 20px;
-				}
-			}
-		`);
+      div {
+        outline: 1px solid red;
+        resize: both;
+        overflow: auto;
+        container-type: size;
+        height: 100px;
+      }
+      h1 {
+        font-size: 10px;
+      }
+      @container (min-width: 200px) {
+        h1 {
+          font-size: 30px;
+        }
+      }
+      @container (max-width: 200px) {
+        h1 {
+          font-size: 20px;
+        }
+      }
+    `);
+    console.log(parsed);
     document.querySelector("style").innerHTML = parsed;
 
     {

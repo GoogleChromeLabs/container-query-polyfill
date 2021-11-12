@@ -53,39 +53,47 @@ function isAncestor(potentialAncestor: Element, descendant: Element): boolean {
   return false;
 }
 
-const containers: WeakMap<Element, string[]> = new WeakMap();
+function findContainer(el: Element, name?: string): Element | null {
+  while (el) {
+    el = el.parentElement;
+    if (!containerNames.has(el)) continue;
+    if (name) {
+      const containerName = containerNames.get(el)!;
+      if (!containerName.includes(name)) continue;
+    }
+    return el;
+  }
+  return null;
+}
+
+const containerNames: WeakMap<Element, string[]> = new WeakMap();
 function registerContainer(el: Element, name: string) {
   containerRO.observe(el);
-  if (!containers.has(el)) {
-    containers.set(el, []);
+  if (!containerNames.has(el)) {
+    containerNames.set(el, []);
   }
-  containers.get(el)!.push(name);
+  containerNames.get(el)!.push(name);
 }
 const queries: Array<ContainerQueryDescriptor> = [];
 function registerContainerQuery(cqd: ContainerQueryDescriptor) {
   queries.push(cqd);
 }
 const containerRO = new ResizeObserver((entries) => {
-  const querySet = new Set(queries);
-  for (const entry of entries) {
-    const container = entry.target;
-    for (const query of querySet) {
-      for (const { selector } of query.rules) {
-        const els = document.querySelectorAll(selector);
-        for (const el of els) {
-          if (!isAncestor(container, el)) continue;
-          // *If* the container query had a name, check that we have the
-          // container with that name.
-          if (query.name) {
-            const containerNames = containers.get(container)!;
-            if (!containerNames.includes(query.name)) continue;
-          }
-          container.classList.toggle(
-            query.className,
-            isQueryFullfilled(query.breakPoint, entry)
-          );
-          querySet.delete(query);
-        }
+  const changedContainers: Map<Element, ResizeObserverEntry> = new Map(
+    entries.map((entry) => [entry.target, entry])
+  );
+  for (const query of queries) {
+    for (const { selector } of query.rules) {
+      const els = document.querySelectorAll(selector);
+      for (const el of els) {
+        const container = findContainer(el, query.name);
+        if (!container) continue;
+        if (!changedContainers.has(container)) continue;
+        const entry = changedContainers.get(container);
+        el.classList.toggle(
+          query.className,
+          isQueryFullfilled(query.breakPoint, entry)
+        );
       }
     }
   }
@@ -368,7 +376,8 @@ function parseContainerQuery(p: AdhocParser): ParseResult {
 function stringifyContainerQuery(query: ContainerQueryDescriptor): string {
   return query.rules
     .map(
-      (rule) => `.${query.className} ${rule.selector} ${rule.block.contents}`
+      (rule) =>
+        `:is(${rule.selector}).${query.className} ${rule.block.contents}`
     )
     .join("\n");
 }
