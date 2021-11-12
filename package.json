@@ -3,8 +3,8 @@
   "version": "0.0.1",
   "description": "",
   "scripts": {
-    "build:minified": "esbuild --bundle ./cqfill.ts --outfile=cqfill.min.js --format=esm --minify",
-    "build:debug": "esbuild --bundle ./cqfill.ts --outfile=cqfill.js --format=esm",
+    "build:minified": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.min.js --format=esm --minify",
+    "build:debug": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.js --format=esm",
     "build": "npm run build:debug && npm run build:minified"
   },
   "author": "Surma <surma@surma.dev>",
