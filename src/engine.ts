@@ -168,14 +168,14 @@ export function transpileStyleSheet(sheetSrc: string): string {
       eatComment(p);
       eatWhitespace(p);
     }
-    const nextIdent = peekIdentifier(p);
-    if (nextIdent === "@container") {
+    if (lookAhead("@container", p)) {
       const { query, startIndex, endIndex } = parseContainerQuery(p);
       const replacement = stringifyContainerQuery(query);
       replacePart(startIndex, endIndex, replacement, p);
       registerContainerQuery(query);
     } else {
       const rule = parseRule(p);
+      if (!rule) continue;
       handleContainerProps(rule, p);
     }
   }
@@ -246,10 +246,17 @@ function eatComment(p: AdhocParser) {
   assertString(p, "*/");
 }
 
+function advance(p: AdhocParser) {
+  p.index++;
+  if (p.index >= p.sheetSrc.length) {
+    throw Error("Advanced beyond the end");
+  }
+}
+
 function eatUntil(s: string, p: AdhocParser): string {
   const startIndex = p.index;
   while (!lookAhead(s, p)) {
-    p.index++;
+    advance(p);
   }
   return p.sheetSrc.slice(startIndex, p.index);
 }
@@ -271,9 +278,23 @@ interface Block {
   endIndex: number;
 }
 
-function parseRule(p: AdhocParser): Rule {
+function parseSelector(p: AdhocParser): string | undefined {
+  let startIndex = p.index;
+  while (/[\sa-zA-Z0-9:_\.,()#\[\]=+~*-]/.test(p.sheetSrc[p.index])) {
+    advance(p);
+  }
+  if (!lookAhead("{", p)) {
+    eatUntil("\n", p);
+    eatWhitespace(p);
+    return;
+  }
+  return p.sheetSrc.slice(startIndex, p.index);
+}
+
+function parseRule(p: AdhocParser): Rule | undefined {
   const startIndex = p.index;
-  const selector = eatUntil("{", p);
+  const selector = parseSelector(p);
+  if (!selector) return;
   const block = eatBlock(p);
   const endIndex = p.index;
   return {
@@ -282,15 +303,6 @@ function parseRule(p: AdhocParser): Rule {
     startIndex,
     endIndex,
   };
-}
-
-function peekIdentifier(p: AdhocParser) {
-  identMatcher.lastIndex = p.index;
-  const match = identMatcher.exec(p.sheetSrc);
-  if (!match) {
-    return "";
-  }
-  return match[0];
 }
 
 function assertString(p: AdhocParser, s: string) {
@@ -369,7 +381,7 @@ function eatBlock(p: AdhocParser): Block {
     } else if (p.sheetSrc[p.index] === "}") {
       level--;
     }
-    p.index++;
+    advance(p);
   }
   const endIndex = p.index;
   const contents = p.sheetSrc.slice(startIndex, endIndex);
