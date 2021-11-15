@@ -3,6 +3,8 @@
   "version": "0.0.1",
   "description": "",
   "type": "module",
+  "main": "cqfill.js",
+  "module": "cqfill.js",
   "scripts": {
     "build:iife:minified": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.iife.min.js --format=iife --minify",
     "build:esm:minified": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.min.js --format=esm --minify",
