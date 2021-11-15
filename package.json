@@ -1,16 +1,21 @@
 {
-  "name": "cqfill",
+  "name": "container-query-polyfill",
   "version": "0.0.1",
   "description": "",
+  "type": "module",
   "scripts": {
     "build:iife:minified": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.iife.min.js --format=iife --minify",
     "build:esm:minified": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.min.js --format=esm --minify",
     "build:esm:debug": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.js --format=esm",
-    "build": "npm run build:esm:debug && npm run build:esm:minified && npm run build:iife:minified"
+    "build": "npm run build:esm:debug && npm run build:esm:minified && npm run build:iife:minified",
+    "serve": "superstatic ."
   },
   "author": "Surma <surma@surma.dev>",
   "license": "Apache-2.0",
   "dependencies": {
     "esbuild": "^0.13.13"
+  },
+  "devDependencies": {
+    "superstatic": "^7.1.0"
   }
 }
