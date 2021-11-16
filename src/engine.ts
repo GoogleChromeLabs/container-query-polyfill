@@ -153,12 +153,14 @@ containerMO.observe(document.documentElement, {
 interface AdhocParser {
   sheetSrc: string;
   index: number;
+  name?: string;
 }
 
-export function transpileStyleSheet(sheetSrc: string): string {
+export function transpileStyleSheet(sheetSrc: string, name?: string): string {
   const p: AdhocParser = {
     sheetSrc,
     index: 0,
+    name,
   };
 
   while (true) {
@@ -249,7 +251,7 @@ function eatComment(p: AdhocParser) {
 function advance(p: AdhocParser) {
   p.index++;
   if (p.index >= p.sheetSrc.length) {
-    throw Error("Advanced beyond the end");
+    throw parseError(p, "Advanced beyond the end");
   }
 }
 
@@ -280,7 +282,7 @@ interface Block {
 
 function parseSelector(p: AdhocParser): string | undefined {
   let startIndex = p.index;
-  while (/[\sa-zA-Z0-9:_\.,()#\[\]=+~*-]/.test(p.sheetSrc[p.index])) {
+  while (/[\sa-zA-Z0-9:_\.,()#\[\]='"+~*-]/.test(p.sheetSrc[p.index])) {
     advance(p);
   }
   if (!lookAhead("{", p)) {
@@ -305,9 +307,20 @@ function parseRule(p: AdhocParser): Rule | undefined {
   };
 }
 
+function fileName(p: AdhocParser): string {
+  if (p.name) {
+    return p.name;
+  }
+  return "<anonymous file>";
+}
+
+function parseError(p: AdhocParser, msg: string): Error {
+  return Error(`(${fileName(p)}): ${msg}`);
+}
+
 function assertString(p: AdhocParser, s: string) {
   if (p.sheetSrc.substr(p.index, s.length) != s) {
-    throw Error(`Did not find expected sequence ${s}`);
+    throw parseError(p, `Did not find expected sequence ${s}`);
   }
   p.index += s.length;
 }
@@ -326,12 +339,12 @@ function peek(p: AdhocParser): string {
   return p.sheetSrc[p.index];
 }
 
-const identMatcher = /[\w\@_-]+/g;
+const identMatcher = /[\w\\\@_-]+/g;
 function parseIdentifier(p: AdhocParser): string {
   identMatcher.lastIndex = p.index;
   const match = identMatcher.exec(p.sheetSrc);
   if (!match) {
-    throw Error("Expected an identifier");
+    throw parseError(p, "Expected an identifier");
   }
   p.index += match[0].length;
   return match[0];
@@ -348,7 +361,7 @@ function undashify(s: string): string {
 function parseMeasurementName(p: AdhocParser): Measurement {
   const measurementName = undashify(parseIdentifier(p).toLowerCase());
   if (!(measurementName in Measurement)) {
-    throw Error(`Unknown query ${measurementName}`);
+    throw parseError(p, `Unknown query ${measurementName}`);
   }
   // FIXME: lol
   return Measurement[measurementName as any] as any;
@@ -359,14 +372,14 @@ function parseThreshold(p: AdhocParser): number {
   numberMatcher.lastIndex = p.index;
   const match = numberMatcher.exec(p.sheetSrc);
   if (!match) {
-    throw Error("Expected a number");
+    throw parseError(p, "Expected a number");
   }
   p.index += match[0].length;
   // TODO: Support other units?
   assertString(p, "px");
   const value = parseFloat(match[0]);
   if (Number.isNaN(value)) {
-    throw Error(`${match[0]} is not a valid number`);
+    throw parseError(p, `${match[0]} is not a valid number`);
   }
   return value;
 }

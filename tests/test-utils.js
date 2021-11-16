@@ -41,6 +41,12 @@ export function assert(bool, msg) {
   }
 }
 
+export function assertEquals(a, b, msg) {
+  if (a !== b) {
+    throw Error(`Expected ${a} == ${b}. ${msg}`);
+  }
+}
+
 export function timeout(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }

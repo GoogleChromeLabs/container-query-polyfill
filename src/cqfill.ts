@@ -41,7 +41,7 @@ function init() {
     const srcUrl = new URL(el.href, import.meta.url);
     if (srcUrl.origin !== location.origin) return;
     const src = await fetch(srcUrl.toString()).then((r) => r.text());
-    const newSrc = transpileStyleSheet(src);
+    const newSrc = transpileStyleSheet(src, srcUrl.toString());
     const blob = new Blob([newSrc], { type: "text/css" });
     el.href = URL.createObjectURL(blob);
   }
