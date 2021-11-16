@@ -337,12 +337,9 @@ function parseIdentifier(p: AdhocParser): string {
   return match[0];
 }
 
-// This function does stuff like `min-width` => `MinWidth`
+// This function does stuff like `min-width` => `minWidth`
 function undashify(s: string): string {
-  const v = s
-    .replace(/-(\w)/, (_, l) => l.toUpperCase())
-    .replace(/^\w/, (v) => v.toUpperCase());
-  return v;
+  return v.replace(/-\w/g, s => s[1].toUpperCase());
 }
 
 function parseMeasurementName(p: AdhocParser): Measurement {
