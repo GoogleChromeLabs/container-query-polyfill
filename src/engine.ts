@@ -79,7 +79,7 @@ function isQueryFullfilled(
 
 function findParentContainer(el: Element, name?: string): Element | null {
   while (el) {
-    el = el.parentElement;
+    el = el.offsetParent;
     if (!containerNames.has(el)) continue;
     if (name) {
       const containerName = containerNames.get(el)!;
