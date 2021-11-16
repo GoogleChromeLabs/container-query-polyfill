@@ -163,7 +163,7 @@ export function transpileStyleSheet(sheetSrc: string, name?: string): string {
     name,
   };
 
-  while (p.index >= p.sheetSrc.length) {
+  while (p.index < p.sheetSrc.length) {
     eatWhitespace(p);
     if (p.index >= p.sheetSrc.length) break;
     while (lookAhead("/*", p)) {
