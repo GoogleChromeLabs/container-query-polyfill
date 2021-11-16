@@ -65,11 +65,11 @@ function isQueryFullfilled(
     };
     // Cut off the "px" suffix from the computed styles.
     borderBox.blockSize +=
-      parseInt(computed.paddingBlockStart.slice(0, -2)) +
-      parseInt(computed.paddingBlockEnd.slice(0, -2));
+      parseFloat(computed.paddingBlockStart) +
+      parseFloat(computed.paddingBlockEnd);
     borderBox.inlineSize +=
-      parseInt(computed.paddingInlineStart.slice(0, -2)) +
-      parseInt(computed.paddingInlineEnd.slice(0, -2));
+      parseFloat(computed.paddingInlineStart) +
+      parseFloat(computed.paddingInlineEnd);
   }
   return comparators.get(breakpoint.measurement)!(
     borderBox,
