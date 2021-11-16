@@ -16,7 +16,7 @@ if (!supportsContainerQueries) {
 If you are in a legacy setup (or just want to prototype quickly), there’s also an IIFE version that you can include using a `<script>` tag:
 
 ```html
-<script src="https://unpkg.com/container-query-polyfill/cqfill.iffe.min.js"></script>
+<script src="https://unpkg.com/container-query-polyfill/cqfill.iife.min.js"></script>
 ```
 
 ## Browser support
