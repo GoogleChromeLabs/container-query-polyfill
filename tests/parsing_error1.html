@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<style></style>
+<div style="width: 100px">
+  <h1>Ohai</h1>
+</div>
+<script type="module">
+  import { doubleRaf, testSuite, assert } from "./test-utils.js";
+  import { transpileStyleSheet } from "/cqfill.js";
+
+  testSuite("Manual transpiling", async () => {
+    const parsed = transpileStyleSheet(`
+      div {
+        outline: 1px solid red;
+        resize: both;
+        overflow: auto;
+        container-type: size;
+        height: 100px;
+      }`); // No space or newline at the end!
+    document.querySelector("style").innerHTML = parsed;
+  });
+</script>

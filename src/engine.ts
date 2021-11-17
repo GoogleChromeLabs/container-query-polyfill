@@ -250,7 +250,7 @@ function eatComment(p: AdhocParser) {
 
 function advance(p: AdhocParser) {
   p.index++;
-  if (p.index >= p.sheetSrc.length) {
+  if (p.index > p.sheetSrc.length) {
     throw parseError(p, "Advanced beyond the end");
   }
 }
