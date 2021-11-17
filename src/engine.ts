@@ -13,7 +13,7 @@
 
 interface ContainerQueryDescriptor {
   name?: string;
-  breakPoint: BreakPoint;
+  breakPoints: BreakPoint[]; // Conjugated by "and"
   className: string;
   rules: Rule[];
 }
@@ -46,7 +46,7 @@ interface BreakPoint {
 }
 
 function isQueryFullfilled(
-  breakpoint: BreakPoint,
+  breakpoints: BreakPoint[],
   entry: ResizeObserverEntry
 ): boolean {
   let borderBox;
@@ -71,9 +71,8 @@ function isQueryFullfilled(
       parseInt(computed.paddingInlineStart.slice(0, -2)) +
       parseInt(computed.paddingInlineEnd.slice(0, -2));
   }
-  return comparators.get(breakpoint.measurement)!(
-    borderBox,
-    breakpoint.threshold
+  return breakpoints.every((breakpoint) =>
+    comparators.get(breakpoint.measurement)!(borderBox, breakpoint.threshold)
   );
 }
 
@@ -116,7 +115,7 @@ const containerRO = new ResizeObserver((entries) => {
         const entry = changedContainers.get(container);
         el.classList.toggle(
           query.className,
-          isQueryFullfilled(query.breakPoint, entry)
+          isQueryFullfilled(query.breakPoints, entry)
         );
       }
     }
@@ -416,16 +415,23 @@ function parseContainerQuery(p: AdhocParser): ParseResult {
     name = parseIdentifier(p);
     eatWhitespace(p);
   }
-  assertString(p, "(");
-  eatWhitespace(p);
-  const measurement = parseMeasurementName(p);
-  eatWhitespace(p);
-  assertString(p, ":");
-  eatWhitespace(p);
-  const threshold = parseThreshold(p);
-  eatWhitespace(p);
-  assertString(p, ")");
-  eatWhitespace(p);
+  const breakPoints: Array<BreakPoint> = [];
+  while (true) {
+    assertString(p, "(");
+    eatWhitespace(p);
+    const measurement = parseMeasurementName(p);
+    eatWhitespace(p);
+    assertString(p, ":");
+    eatWhitespace(p);
+    const threshold = parseThreshold(p);
+    breakPoints.push({ measurement, threshold });
+    eatWhitespace(p);
+    assertString(p, ")");
+    eatWhitespace(p);
+    if (!lookAhead("and", p)) break;
+    assertString(p, "and");
+    eatWhitespace(p);
+  }
   assertString(p, "{");
   eatWhitespace(p);
   const rules = [];
@@ -439,10 +445,7 @@ function parseContainerQuery(p: AdhocParser): ParseResult {
   const className = `cq_${uid()}`;
   return {
     query: {
-      breakPoint: {
-        measurement,
-        threshold,
-      },
+      breakPoints,
       className,
       name,
       rules,
