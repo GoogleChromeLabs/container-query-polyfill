@@ -11,9 +11,45 @@
  * limitations under the License.
  */
 
+interface SizeQuery {
+  type: ContainerConditionType.SizeQuery;
+  measurement: Measurement;
+  threshold: number;
+}
+
+interface ContainerConditionConjunction {
+  type: ContainerConditionType.ContainerConditionConjunction;
+  left: ContainerCondition;
+  right: ContainerCondition;
+}
+
+interface ContainerConditionDisjunction {
+  type: ContainerConditionType.ContainerConditionDisjunction;
+  left: ContainerCondition;
+  right: ContainerCondition;
+}
+
+interface ContainerConditionNegation {
+  type: ContainerConditionType.ContainerConditionNegation;
+  right: ContainerCondition;
+}
+
+enum ContainerConditionType {
+  SizeQuery,
+  ContainerConditionConjunction,
+  ContainerConditionDisjunction,
+  ContainerConditionNegation,
+}
+
+type ContainerCondition =
+  | SizeQuery
+  | ContainerConditionConjunction
+  | ContainerConditionDisjunction
+  | ContainerConditionNegation;
+
 interface ContainerQueryDescriptor {
   name?: string;
-  breakPoints: BreakPoint[]; // Conjugated by "and"
+  condition: ContainerCondition;
   className: string;
   rules: Rule[];
 }
@@ -40,13 +76,35 @@ const comparators: Map<Measurement, Comparator> = new Map([
   [Measurement.MinWidth, (v, t) => v.inlineSize >= t],
 ]);
 
-interface BreakPoint {
-  measurement: Measurement;
-  threshold: number;
+function isQueryFullfilled_internal(
+  condition: ContainerCondition,
+  borderBox: ResizeObserverSize
+): boolean {
+  switch (condition.type) {
+    case ContainerConditionType.ContainerConditionConjunction:
+      return (
+        isQueryFullfilled_internal(condition.left, borderBox) &&
+        isQueryFullfilled_internal(condition.right, borderBox)
+      );
+    case ContainerConditionType.ContainerConditionDisjunction:
+      return (
+        isQueryFullfilled_internal(condition.left, borderBox) ||
+        isQueryFullfilled_internal(condition.right, borderBox)
+      );
+    case ContainerConditionType.ContainerConditionNegation:
+      return !isQueryFullfilled_internal(condition.right, borderBox);
+    case ContainerConditionType.SizeQuery:
+      return comparators.get(condition.measurement)!(
+        borderBox,
+        condition.threshold
+      );
+    default:
+      throw Error("wtf?");
+  }
 }
 
 function isQueryFullfilled(
-  breakpoints: BreakPoint[],
+  condition: ContainerCondition,
   entry: ResizeObserverEntry
 ): boolean {
   let borderBox;
@@ -71,9 +129,7 @@ function isQueryFullfilled(
       parseInt(computed.paddingInlineStart.slice(0, -2)) +
       parseInt(computed.paddingInlineEnd.slice(0, -2));
   }
-  return breakpoints.every((breakpoint) =>
-    comparators.get(breakpoint.measurement)!(borderBox, breakpoint.threshold)
-  );
+  return isQueryFullfilled_internal(condition, borderBox);
 }
 
 function findParentContainer(el: Element, name?: string): Element | null {
@@ -115,7 +171,7 @@ const containerRO = new ResizeObserver((entries) => {
         const entry = changedContainers.get(container);
         el.classList.toggle(
           query.className,
-          isQueryFullfilled(query.breakPoints, entry)
+          isQueryFullfilled(query.condition, entry)
         );
       }
     }
@@ -406,6 +462,70 @@ interface ParseResult {
   endIndex: number;
 }
 
+function parseSizeQuery(p: AdhocParser): ContainerCondition {
+  assertString(p, "(");
+  if (lookAhead("(", p)) {
+    const cond = parseContainerCondition(p);
+    assertString(p, ")");
+    return cond;
+  }
+  const measurement = parseMeasurementName(p);
+  eatWhitespace(p);
+  assertString(p, ":");
+  eatWhitespace(p);
+  const threshold = parseThreshold(p);
+  eatWhitespace(p);
+  assertString(p, ")");
+  eatWhitespace(p);
+  return {
+    type: ContainerConditionType.SizeQuery,
+    measurement,
+    threshold,
+  };
+}
+
+function parseNegatedContainerCondition(p: AdhocParser): ContainerCondition {
+  if (lookAhead("not", p)) {
+    assertString(p, "not");
+    eatWhitespace(p);
+    return {
+      type: ContainerConditionType.ContainerConditionNegation,
+      right: parseSizeQuery(p),
+    };
+  }
+  return parseSizeQuery(p);
+}
+function parseContainerCondition(p: AdhocParser): ContainerCondition {
+  let left = parseNegatedContainerCondition(p);
+
+  while (true) {
+    if (lookAhead("and", p)) {
+      assertString(p, "and");
+      eatWhitespace(p);
+      const right = parseNegatedContainerCondition(p);
+      eatWhitespace(p);
+      left = {
+        type: ContainerConditionType.ContainerConditionConjunction,
+        left,
+        right,
+      };
+    } else if (lookAhead("or", p)) {
+      assertString(p, "or");
+      eatWhitespace(p);
+      const right = parseNegatedContainerCondition(p);
+      eatWhitespace(p);
+      left = {
+        type: ContainerConditionType.ContainerConditionDisjunction,
+        left,
+        right,
+      };
+    } else {
+      break;
+    }
+  }
+  return left;
+}
+
 function parseContainerQuery(p: AdhocParser): ParseResult {
   const startIndex = p.index;
   assertString(p, "@container");
@@ -415,23 +535,8 @@ function parseContainerQuery(p: AdhocParser): ParseResult {
     name = parseIdentifier(p);
     eatWhitespace(p);
   }
-  const breakPoints: Array<BreakPoint> = [];
-  while (true) {
-    assertString(p, "(");
-    eatWhitespace(p);
-    const measurement = parseMeasurementName(p);
-    eatWhitespace(p);
-    assertString(p, ":");
-    eatWhitespace(p);
-    const threshold = parseThreshold(p);
-    breakPoints.push({ measurement, threshold });
-    eatWhitespace(p);
-    assertString(p, ")");
-    eatWhitespace(p);
-    if (!lookAhead("and", p)) break;
-    assertString(p, "and");
-    eatWhitespace(p);
-  }
+  const condition = parseContainerCondition(p);
+  eatWhitespace(p);
   assertString(p, "{");
   eatWhitespace(p);
   const rules = [];
@@ -445,7 +550,7 @@ function parseContainerQuery(p: AdhocParser): ParseResult {
   const className = `cq_${uid()}`;
   return {
     query: {
-      breakPoints,
+      condition,
       className,
       name,
       rules,
