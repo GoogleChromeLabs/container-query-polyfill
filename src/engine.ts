@@ -245,21 +245,21 @@ function handleContainerProps(rule: Rule, p) {
   if (!hasLongHand && !hasShortHand) return;
   let containerName, containerType;
   if (hasLongHand) {
-    containerName = /container-name: ([^;]+);/.exec(rule.block.contents)?.[1];
+    containerName = /container-name: ([^;}]+)/.exec(rule.block.contents)?.[1];
     rule.block.contents = rule.block.contents.replace(
       "container-type",
       "contain"
     );
   }
   if (hasShortHand) {
-    const containerShorthand = /container: ([^;]+);/.exec(
+    const containerShorthand = /container: ([^;}]+)/.exec(
       rule.block.contents
     )?.[1];
     [containerType, containerName] = containerShorthand
       .split("/")
       .map((v) => v.trim());
     rule.block.contents = rule.block.contents.replace(
-      /container: ([^;]+);/,
+      /container: ([^;}]+)/,
       `contain: ${containerType};`
     );
   }
