@@ -211,6 +211,8 @@ interface AdhocParser {
   name?: string;
 }
 
+// Loosely inspired by
+// https://drafts.csswg.org/css-syntax/#parser-diagrams
 export function transpileStyleSheet(sheetSrc: string, name?: string): string {
   const p: AdhocParser = {
     sheetSrc,
@@ -231,7 +233,7 @@ export function transpileStyleSheet(sheetSrc: string, name?: string): string {
       replacePart(startIndex, endIndex, replacement, p);
       registerContainerQuery(query);
     } else {
-      const rule = parseRule(p);
+      const rule = parseQualifiedRule(p);
       if (!rule) continue;
       handleContainerProps(rule, p);
     }
@@ -245,14 +247,16 @@ function handleContainerProps(rule: Rule, p) {
   if (!hasLongHand && !hasShortHand) return;
   let containerName, containerType;
   if (hasLongHand) {
-    containerName = /container-name: ([^;}]+)/.exec(rule.block.contents)?.[1];
+    containerName = /container-name\s*:([^;}]+)/
+      .exec(rule.block.contents)?.[1]
+      .trim();
     rule.block.contents = rule.block.contents.replace(
       "container-type",
       "contain"
     );
   }
   if (hasShortHand) {
-    const containerShorthand = /container: ([^;}]+)/.exec(
+    const containerShorthand = /container\s*:([^;}]+)/.exec(
       rule.block.contents
     )?.[1];
     [containerType, containerName] = containerShorthand
@@ -337,18 +341,11 @@ interface Block {
 
 function parseSelector(p: AdhocParser): string | undefined {
   let startIndex = p.index;
-  while (/[\sa-zA-Z0-9:_\.,()#\[\]='"+~*-]/.test(p.sheetSrc[p.index])) {
-    advance(p);
-  }
-  if (!lookAhead("{", p)) {
-    eatUntil("\n", p);
-    eatWhitespace(p);
-    return;
-  }
+  eatUntil("{", p);
   return p.sheetSrc.slice(startIndex, p.index);
 }
 
-function parseRule(p: AdhocParser): Rule | undefined {
+function parseQualifiedRule(p: AdhocParser): Rule | undefined {
   const startIndex = p.index;
   const selector = parseSelector(p);
   if (!selector) return;
@@ -541,7 +538,7 @@ function parseContainerQuery(p: AdhocParser): ParseResult {
   eatWhitespace(p);
   const rules = [];
   while (peek(p) !== "}") {
-    rules.push(parseRule(p));
+    rules.push(parseQualifiedRule(p));
     eatWhitespace(p);
   }
   assertString(p, "}");
