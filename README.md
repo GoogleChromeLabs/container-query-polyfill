@@ -25,7 +25,7 @@ The polyfull should work in all modern browsers. Chrome 88+, Firefox 78+ and Saf
 
 ## Limitations
 
-To keep the polyfill performant, small and maintainable, I have make certain tradeoffs with full feature parity of the Container Query spec. I have listed these tradeoffs below.
+My aim is to make the polyfill work correctly for the _majority_ of use-cases, but cut corners where possible to keep the polyfill simple(-ish), small and efficient. The limitations arising from these tradeoffs are listed below.
 
 (These decisions _can_ be revisited if they pose a significant hurdle and there is a good way to implement them. Please open an issue!)
 
