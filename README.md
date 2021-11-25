@@ -21,7 +21,7 @@ If you are in a legacy setup (or just want to prototype quickly), there’s also
 
 ## Browser support
 
-The polyfull should work in all modern browsers. Chrome 88+, Firefox 78+ and Safari 14+.
+The polyfill should work in all modern browsers. Chrome 88+, Firefox 78+ and Safari 14+.
 
 ## Limitations
 
