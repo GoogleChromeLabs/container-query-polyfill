@@ -29,7 +29,7 @@ My aim is to make the polyfill work correctly for the _majority_ of use-cases, b
 
 (These decisions _can_ be revisited if they pose a significant hurdle and there is a good way to implement them. Please open an issue!)
 
-- Only a subset of queries are supported for now. Specifically, only `min-width`, `max-width`, `min-height` and `max-height` are supported. Additional, the polyfill supports conjunctions via `and`, but not `or` or `not` as of yet.
+- Only a subset of queries are supported for now. Specifically, only `min-width`, `max-width`, `min-height` and `max-height` are supported. Additional, the polyfill _does_ support `and`, `or` or `not`.
 - Container Queries will not work when nested inside a Media Query. For now, the polyfill only supports top-level CQs.
 - Container query thresholds can only be specified using pixels.
 - Due to the nature of CORS, the polyfill only attempts to handle same-origin and inline stylesheets. Cross-origin stylesheets are ignored, regardless of CORS headers.
