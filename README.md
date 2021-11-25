@@ -35,6 +35,22 @@ To keep the polyfill performant, small and maintainable, I have make certain tra
 - Due to the nature of CORS, the polyfill only attempts to handle same-origin and inline stylesheets. Cross-origin stylesheets are ignored, regardless of CORS headers.
 - Don’t do weird interspersed comments, okay? Like `@container /* here’s a comment! */ (min-width: 1px) { ... }`. Just don’t.
 
+## Building & Testing
+
+This project uses [esbuild] to bundle the project, which is automatically installed via npm. To build the polyfill, run:
+
+```
+npm run build
+```
+
+To run the tests, run
+
+```
+npm run serve
+```
+
+and open your browser at `http://127.0.0.1:3474/tests`.
+
 ---
 
 License Apache-2.0
@@ -42,3 +58,4 @@ License Apache-2.0
 [mdn]: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Container_Queries
 [resizeobserver]: https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver
 [mutationobserver]: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
+[esbuild]: https://esbuild.github.io/
