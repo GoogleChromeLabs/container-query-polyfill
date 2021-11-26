@@ -38,7 +38,7 @@ function init() {
 
   async function handleLinkedStylesheet(el: HTMLLinkElement) {
     if (el.rel !== "stylesheet") return;
-    const srcUrl = new URL(el.href, import.meta.url);
+    const srcUrl = new URL(el.href, document.baseURI);
     if (srcUrl.origin !== location.origin) return;
     const src = await fetch(srcUrl.toString()).then((r) => r.text());
     const newSrc = transpileStyleSheet(src, srcUrl.toString());
