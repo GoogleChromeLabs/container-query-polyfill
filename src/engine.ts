@@ -415,8 +415,7 @@ function parseMeasurementName(p: AdhocParser): Measurement {
   if (!(measurementName in Measurement)) {
     throw parseError(p, `Unknown query ${measurementName}`);
   }
-  // FIXME: lol
-  return Measurement[measurementName as any] as any;
+  return Measurement[measurementName as keyof typeof Measurement];
 }
 
 const numberMatcher = /[0-9.]*/g;
