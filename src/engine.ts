@@ -246,9 +246,12 @@ export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
     return p.sheetSrc;
   }
 
-  p.sheetSrc = p.sheetSrc.replace(/url\(([^)]+)\)/g, (match, url) => {
-    return `url(${new URL(url, srcUrl)})`;
-  });
+  p.sheetSrc = p.sheetSrc.replace(
+    /url\(["']*([^)"']+)["']*\)/g,
+    (match, url) => {
+      return `url(${new URL(url, srcUrl)})`;
+    }
+  );
   return p.sheetSrc;
 }
 
