@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<link rel="stylesheet" href="./relative_urls.css" />
+<div id="noquotes" style="width: 100px">
+  <span></span>
+</div>
+<div id="doublequotes" style="width: 100px">
+  <span></span>
+</div>
+<div id="singlequotes" style="width: 100px">
+  <span></span>
+</div>
+<script type="module">
+  import { doubleRaf, testSuite, assert, nextEvent } from "./test-utils.js";
+  import "/cqfill.js";
+
+  testSuite("Manual transpiling", async () => {
+    const link = document.querySelector("link");
+    if (
+      ![...document.styleSheets].some(
+        (stylesheet) => stylesheet.ownerNode === link
+      )
+    ) {
+      await nextEvent(link, "load");
+      await doubleRaf();
+    }
+
+    document
+      .querySelectorAll("div")
+      .forEach((div) => (div.style = "width: 100px"));
+    await doubleRaf();
+    {
+      await doubleRaf();
+      for (const selector of ["#noquotes", "#doublequotes", "#singlequotes"]) {
+        const { backgroundImage } = getComputedStyle(
+          document.querySelector(`${selector} span`)
+        );
+        assert(
+          backgroundImage.includes("red.png"),
+          `Expected red background image, got ${backgroundImage}`
+        );
+      }
+    }
+    document
+      .querySelectorAll("div")
+      .forEach((div) => (div.style = "width: 300px"));
+    await doubleRaf();
+    {
+      await doubleRaf();
+      for (const selector of ["#noquotes", "#doublequotes", "#singlequotes"]) {
+        const { backgroundImage } = getComputedStyle(
+          document.querySelector(`${selector} span`)
+        );
+        assert(
+          backgroundImage.includes("green.png"),
+          `Expected green background image, got ${backgroundImage}`
+        );
+      }
+    }
+  });
+</script>

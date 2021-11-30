@@ -28,6 +28,7 @@
     "parsing_error2",
     "cdn_link",
     "cdn_link_iife",
+    "relative_urls",
   ];
 
   const { results, iframe } = document.all;
@@ -44,7 +45,7 @@
       const { value: message } = await reader.read();
       testResults[test] = message;
       reader.releaseLock();
-      results.innerHTML += `<span>${test}</span><span>${message}</span>`;
+      results.innerHTML += `<span><a href="./${test}.html">${test}</a></span><span>${message}</span>`;
     }
     return testResults;
   }

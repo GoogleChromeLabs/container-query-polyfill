@@ -213,11 +213,11 @@ interface AdhocParser {
 
 // Loosely inspired by
 // https://drafts.csswg.org/css-syntax/#parser-diagrams
-export function transpileStyleSheet(sheetSrc: string, name?: string): string {
+export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
   const p: AdhocParser = {
     sheetSrc,
     index: 0,
-    name,
+    name: srcUrl,
   };
 
   while (p.index < p.sheetSrc.length) {
@@ -238,6 +238,20 @@ export function transpileStyleSheet(sheetSrc: string, name?: string): string {
       handleContainerProps(rule, p);
     }
   }
+
+  // If this sheet has no srcURL (like from a <style> tag), we are
+  // done. Otherwise, we have to find `url()` functions and resolve
+  // relative and path-absolute URLs to absolute URLs.
+  if (!srcUrl) {
+    return p.sheetSrc;
+  }
+
+  p.sheetSrc = p.sheetSrc.replace(
+    /url\(["']*([^)"']+)["']*\)/g,
+    (match, url) => {
+      return `url(${new URL(url, srcUrl)})`;
+    }
+  );
   return p.sheetSrc;
 }
 

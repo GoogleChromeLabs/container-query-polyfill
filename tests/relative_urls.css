@@ -1,0 +1,31 @@
+div {
+  outline: 1px solid red;
+  resize: both;
+  overflow: auto;
+  container-type: size;
+  height: 100px;
+  display: grid;
+}
+#noquotes span {
+  grid-area: 1/1;
+  background: url(/tests/red.png);
+}
+#doublequotes span {
+  grid-area: 1/1;
+  background: url("/tests/red.png");
+}
+#singlequotes span {
+  grid-area: 1/1;
+  background: url("/tests/red.png");
+}
+@container (min-width: 200px) {
+  #noquotes span {
+    background: url(/tests/green.png);
+  }
+  #doublequotes span {
+    background: url("/tests/green.png");
+  }
+  #singlequotes span {
+    background: url("/tests/green.png");
+  }
+}
