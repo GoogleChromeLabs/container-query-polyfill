@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<link rel="stylesheet" href="./relative_urls.css" />
+<div style="width: 100px">
+  <span></span>
+</div>
+<script type="module">
+  import { doubleRaf, testSuite, assert, nextEvent } from "./test-utils.js";
+  import "/cqfill.js";
+
+  testSuite("Manual transpiling", async () => {
+    const link = document.querySelector("link");
+    if (
+      ![...document.styleSheets].some(
+        (stylesheet) => stylesheet.ownerNode === link
+      )
+    ) {
+      await nextEvent(link, "load");
+      await doubleRaf();
+    }
+
+    await doubleRaf();
+    {
+      await doubleRaf();
+      const { backgroundImage } = getComputedStyle(
+        document.querySelector("div span")
+      );
+      assert(
+        backgroundImage.includes("red.png"),
+        `Expected red background image, got ${backgroundImage}`
+      );
+    }
+    document.querySelector("div").style = "width: 300px";
+    {
+      await doubleRaf();
+      const { backgroundImage } = getComputedStyle(
+        document.querySelector("div span")
+      );
+      assert(
+        backgroundImage.includes("green.png"),
+        `Expected green background image, got ${backgroundImage}`
+      );
+    }
+  });
+</script>

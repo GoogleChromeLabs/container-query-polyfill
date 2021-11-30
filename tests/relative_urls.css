@@ -1,0 +1,17 @@
+div {
+  outline: 1px solid red;
+  resize: both;
+  overflow: auto;
+  container-type: size;
+  height: 100px;
+  display: grid;
+}
+span {
+  grid-area: 1/1;
+  background: url(/tests/red.png);
+}
+@container (min-width: 200px) {
+  span {
+    background: url(/tests/green.png);
+  }
+}
