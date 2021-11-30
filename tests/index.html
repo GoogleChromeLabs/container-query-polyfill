@@ -45,7 +45,7 @@
       const { value: message } = await reader.read();
       testResults[test] = message;
       reader.releaseLock();
-      results.innerHTML += `<span>${test}</span><span>${message}</span>`;
+      results.innerHTML += `<span><a href="./${test}.html">${test}</a></span><span>${message}</span>`;
     }
     return testResults;
   }
