@@ -231,9 +231,12 @@ export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
   while (p.index < p.sheetSrc.length) {
     eatWhitespace(p);
     if (p.index >= p.sheetSrc.length) break;
-    while (lookAhead("/*", p)) {
-      eatComment(p);
-      eatWhitespace(p);
+    if(lookAhead("/*", p)) {
+      while (lookAhead("/*", p)) {
+        eatComment(p);
+        eatWhitespace(p);
+      }
+      continue;
     }
     if (lookAhead("@container", p)) {
       const { query, startIndex, endIndex } = parseContainerQuery(p);
