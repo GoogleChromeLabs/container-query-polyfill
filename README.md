@@ -21,7 +21,7 @@ If you are in a legacy setup (or just want to prototype quickly), there’s also
 
 ## Browser support
 
-The polyfill should work in all modern browsers. Chrome 88+, Firefox 78+ and Safari 14+.
+The polyfill relies on [ResizeObserver], [MutationObserver] and [`:is()`][is selector]. Therefore, it should work in all modern browsers, specifically Chrome/Edge 88+, Firefox 78+ and Safari 14+.
 
 ## Limitations
 
@@ -34,6 +34,7 @@ My aim is to make the polyfill work correctly for the _majority_ of use-cases, b
 - Container query thresholds can only be specified using pixels.
 - Due to the nature of CORS, the polyfill only attempts to handle same-origin and inline stylesheets. Cross-origin stylesheets are ignored, regardless of CORS headers.
 - Don’t do weird interspersed comments, okay? Like `@container /* here’s a comment! */ (min-width: 1px) { ... }`. Just don’t.
+- CQs inside ShadowDOM are not supported yet.
 
 ## Building & Testing
 
@@ -56,6 +57,7 @@ and open your browser at `http://127.0.0.1:8081/tests`.
 License Apache-2.0
 
 [mdn]: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Container_Queries
-[resizeobserver]: https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver
-[mutationobserver]: https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
+[resizeobserver]: https://caniuse.com/resizeobserver
+[mutationobserver]: https://caniuse.com/mutationobserver
 [esbuild]: https://esbuild.github.io/
+[is selector]: https://caniuse.com/css-matches-pseudo
