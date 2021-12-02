@@ -193,8 +193,14 @@ const containerMO = new MutationObserver((entries) => {
     for (const node of entry.addedNodes) {
       if (!(node instanceof HTMLElement)) continue;
       for (const watchedContainerSelector of watchedContainerSelectors) {
-        if (node.matches(watchedContainerSelector.selector)) {
+        // Check if the node itself is a container, and if so, start watching it.
+        if(node.matches(watchedContainerSelector.selector)) {
           registerContainer(node, watchedContainerSelector.name);
+        }
+        // If the node was added with children, the children will NOT get their own
+        // MO events, so we need to check the children manually.
+        for(const container of node.querySelectorAll(watchedContainerSelector.selector)) {
+          registerContainer(container, watchedContainerSelector.name);
         }
       }
     }
