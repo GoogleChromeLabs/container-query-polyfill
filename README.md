@@ -49,7 +49,7 @@ To run the tests, run
 npm run serve
 ```
 
-and open your browser at `http://127.0.0.1:3474/tests`.
+and open your browser at `http://127.0.0.1:8081/tests`.
 
 ---
 
