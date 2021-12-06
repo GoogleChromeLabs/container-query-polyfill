@@ -11,9 +11,17 @@
  * limitations under the License.
  */
 
+const enum Comparator {
+  LESS_THAN,
+  LESS_OR_EQUAL,
+  GREATER_THAN,
+  GREATER_OR_EQUAL,
+}
+
 interface SizeQuery {
   type: ContainerConditionType.SizeQuery;
-  measurement: Measurement;
+  feature: string;
+  comparator: Comparator;
   threshold: number;
 }
 
@@ -60,21 +68,37 @@ function uid(): string {
   ).join("");
 }
 
-enum Measurement {
-  MinWidth,
-  MaxWidth,
-  MinHeight,
-  MaxHeight,
+function translateToLogicalProp(feature: string): string {
+  switch (feature.toLowerCase()) {
+    case "inlinesize":
+      return "inlineSize";
+    case "blocksize":
+      return "blockSize";
+    case "width":
+      return "inlineSize";
+    case "height":
+      return "blockSize";
+    default:
+      throw Error(`Unknown feature name ${feature} in container query`);
+  }
 }
 
-// TODO: Fix for logical props
-type Comparator = (v: ResizeObserverSize, threshold: number) => boolean;
-const comparators: Map<Measurement, Comparator> = new Map([
-  [Measurement.MaxHeight, (v, t) => v.blockSize <= t],
-  [Measurement.MinHeight, (v, t) => v.blockSize >= t],
-  [Measurement.MaxWidth, (v, t) => v.inlineSize <= t],
-  [Measurement.MinWidth, (v, t) => v.inlineSize >= t],
-]);
+function isSizeQueryFulfilled(
+  condition: SizeQuery,
+  borderBox: ResizeObserverSize
+): boolean {
+  const value = borderBox[translateToLogicalProp(condition.feature)];
+  switch (condition.comparator) {
+    case Comparator.GREATER_OR_EQUAL:
+      return value >= condition.threshold;
+    case Comparator.GREATER_THAN:
+      return value > condition.threshold;
+    case Comparator.LESS_OR_EQUAL:
+      return value <= condition.threshold;
+    case Comparator.LESS_THAN:
+      return value < condition.threshold;
+  }
+}
 
 function isQueryFullfilled_internal(
   condition: ContainerCondition,
@@ -94,10 +118,7 @@ function isQueryFullfilled_internal(
     case ContainerConditionType.ContainerConditionNegation:
       return !isQueryFullfilled_internal(condition.right, borderBox);
     case ContainerConditionType.SizeQuery:
-      return comparators.get(condition.measurement)!(
-        borderBox,
-        condition.threshold
-      );
+      return isSizeQueryFulfilled(condition, borderBox);
     default:
       throw Error("wtf?");
   }
@@ -231,7 +252,7 @@ export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
   while (p.index < p.sheetSrc.length) {
     eatWhitespace(p);
     if (p.index >= p.sheetSrc.length) break;
-    if(lookAhead("/*", p)) {
+    if (lookAhead("/*", p)) {
       while (lookAhead("/*", p)) {
         eatComment(p);
         eatWhitespace(p);
@@ -435,12 +456,8 @@ function undashify(s: string): string {
   return v;
 }
 
-function parseMeasurementName(p: AdhocParser): Measurement {
-  const measurementName = undashify(parseIdentifier(p).toLowerCase());
-  if (!(measurementName in Measurement)) {
-    throw parseError(p, `Unknown query ${measurementName}`);
-  }
-  return Measurement[measurementName as keyof typeof Measurement];
+function parseMeasurementName(p: AdhocParser): string {
+  return parseIdentifier(p).toLowerCase();
 }
 
 const numberMatcher = /[0-9.]*/g;
@@ -483,13 +500,7 @@ interface ParseResult {
   endIndex: number;
 }
 
-function parseSizeQuery(p: AdhocParser): ContainerCondition {
-  assertString(p, "(");
-  if (lookAhead("(", p)) {
-    const cond = parseContainerCondition(p);
-    assertString(p, ")");
-    return cond;
-  }
+function parseLegacySizeQuery(p: AdhocParser): SizeQuery {
   const measurement = parseMeasurementName(p);
   eatWhitespace(p);
   assertString(p, ":");
@@ -498,9 +509,65 @@ function parseSizeQuery(p: AdhocParser): ContainerCondition {
   eatWhitespace(p);
   assertString(p, ")");
   eatWhitespace(p);
+  let comparator;
+  if (measurement.startsWith("min-")) {
+    comparator = Comparator.GREATER_THAN;
+  } else if (measurement.startsWith("max-")) {
+    comparator = Comparator.LESS_THAN;
+  } else {
+    throw Error(`Unknown legacy container query ${measurement}`);
+  }
   return {
     type: ContainerConditionType.SizeQuery,
-    measurement,
+    feature: translateToLogicalProp(measurement.slice(4)),
+    comparator,
+    threshold,
+  };
+}
+
+function parseComparator(p: AdhocParser): Comparator {
+  if (lookAhead(">=", p)) {
+    assertString(p, ">=");
+    return Comparator.GREATER_OR_EQUAL;
+  }
+  if (lookAhead(">", p)) {
+    assertString(p, ">");
+    return Comparator.GREATER_THAN;
+  }
+  if (lookAhead("<=", p)) {
+    assertString(p, "<=");
+    return Comparator.LESS_OR_EQUAL;
+  }
+  if (lookAhead(">", p)) {
+    assertString(p, ">");
+    return Comparator.LESS_THAN;
+  }
+  throw Error(`Unknown comparator`);
+}
+
+function parseSizeQuery(p: AdhocParser): ContainerCondition {
+  assertString(p, "(");
+  if (lookAhead("(", p)) {
+    const cond = parseContainerCondition(p);
+    assertString(p, ")");
+    return cond;
+  }
+  eatWhitespace(p);
+  if (lookAhead("min-", p) || lookAhead("max-", p)) {
+    return parseLegacySizeQuery(p);
+  }
+  const feature = parseIdentifier(p).toLowerCase();
+  eatWhitespace(p);
+  const comparator = parseComparator(p);
+  eatWhitespace(p);
+  const threshold = parseThreshold(p);
+  eatWhitespace(p);
+  assertString(p, ")");
+  eatWhitespace(p);
+  return {
+    type: ContainerConditionType.SizeQuery,
+    feature,
+    comparator,
     threshold,
   };
 }
