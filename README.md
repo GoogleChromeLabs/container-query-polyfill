@@ -23,18 +23,34 @@ If you are in a legacy setup (or just want to prototype quickly), there’s also
 
 The polyfill relies on [ResizeObserver], [MutationObserver] and [`:is()`][is selector]. Therefore, it should work in all modern browsers, specifically Chrome/Edge 88+, Firefox 78+ and Safari 14+.
 
-## Limitations
+## Feature support & limitations
 
 My aim is to make the polyfill work correctly for the _majority_ of use-cases, but cut corners where possible to keep the polyfill simple(-ish), small and efficient. The limitations arising from these tradeoffs are listed below.
 
 (These decisions _can_ be revisited if they pose a significant hurdle and there is a good way to implement them. Please open an issue!)
 
-- Only a subset of queries are supported for now. Specifically, only `min-width`, `max-width`, `min-height` and `max-height` are supported. Additionally, the polyfill _does_ support `and`, `or` or `not`.
+- Both the old CQ syntax as well as the new syntax are supported:
+
+```css
+/* These are all equivalent */
+@container (min-width: 200px) {
+  /* ... */
+}
+@container (width >= 200px) {
+  /* ... */
+}
+@container size(width >= 200px) {
+  /* ... */
+}
+```
+
+- Boolean operations (`and`, `or` and `not`) are supporrted.
+- The polyfill does _not_ support layout queries (e.g. `@container layout(--color: red)`), as there is no way to get notified of computed style changes.
 - Container Queries will not work when nested inside a Media Query. For now, the polyfill only supports top-level CQs.
-- Container query thresholds can only be specified using pixels.
-- Due to the nature of CORS, the polyfill only attempts to handle same-origin and inline stylesheets. Cross-origin stylesheets are ignored, regardless of CORS headers.
-- Don’t do weird interspersed comments, okay? Like `@container /* here’s a comment! */ (min-width: 1px) { ... }`. Just don’t.
+- Container Query thresholds can only be specified using pixels.
+- Due to the nature of CORS, the polyfill only attempts to handle same-origin and inline stylesheets. Cross-origin stylesheets are not processed, regardless of CORS headers.
 - CQs inside ShadowDOM are not supported yet.
+- Don’t do weird interspersed comments, okay? Like `@container /* here’s a comment! */ (min-width: 1px) { ... }`. Just don’t.
 
 ## Building & Testing
 
