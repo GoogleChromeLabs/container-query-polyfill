@@ -572,15 +572,15 @@ function parseSizeQuery(p: AdhocParser): ContainerCondition {
   };
 }
 
-function parseSizeOrLayoutQuery(p: AdhocParser): ContainerCondition {
+function parseSizeOrStyleQuery(p: AdhocParser): ContainerCondition {
   eatWhitespace(p);
   if (lookAhead("(", p)) return parseSizeQuery(p);
   else if (lookAhead("size", p)) {
     assertString(p, "size");
     eatWhitespace(p);
     return parseSizeQuery(p);
-  } else if (lookAhead("layout", p)) {
-    throw Error(`Layout query not implement yet`);
+  } else if (lookAhead("style", p)) {
+    throw Error(`Style query not implement yet`);
   } else {
     throw Error(`Unknown container query type`);
   }
@@ -592,10 +592,10 @@ function parseNegatedContainerCondition(p: AdhocParser): ContainerCondition {
     eatWhitespace(p);
     return {
       type: ContainerConditionType.ContainerConditionNegation,
-      right: parseSizeOrLayoutQuery(p),
+      right: parseSizeOrStyleQuery(p),
     };
   }
-  return parseSizeOrLayoutQuery(p);
+  return parseSizeOrStyleQuery(p);
 }
 function parseContainerCondition(p: AdhocParser): ContainerCondition {
   let left = parseNegatedContainerCondition(p);
@@ -633,7 +633,7 @@ function parseContainerQuery(p: AdhocParser): ParseResult {
   assertString(p, "@container");
   eatWhitespace(p);
   let name: string = "";
-  if (peek(p) !== "(" && !lookAhead("size", p) && !lookAhead("layout", p)) {
+  if (peek(p) !== "(" && !lookAhead("size", p) && !lookAhead("style", p)) {
     name = parseIdentifier(p);
     eatWhitespace(p);
   }
