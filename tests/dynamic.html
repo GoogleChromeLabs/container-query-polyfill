@@ -36,8 +36,9 @@
     const h1 = document.createElement("h1");
     h1.innerText = "lol";
     div.append(h1);
+    await doubleRaf();
 
-    document.querySelector("div").style = "width: 200px";
+    document.querySelector("div").style = "width: 150px";
     {
       await doubleRaf();
       const { fontSize } = getComputedStyle(document.querySelector("div h1"));
@@ -46,7 +47,7 @@
         `Expected font-size to be 20px, got ${fontSize}`
       );
     }
-    document.querySelector("div").style = "width: 300px";
+    document.querySelector("div").style = "width: 250px";
     {
       await doubleRaf();
       const { fontSize } = getComputedStyle(document.querySelector("div h1"));

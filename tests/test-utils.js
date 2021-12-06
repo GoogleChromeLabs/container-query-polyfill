@@ -65,4 +65,5 @@ export async function testSuite(name, cb) {
     return;
   }
   success();
+  console.log("Test passed successfully");
 }

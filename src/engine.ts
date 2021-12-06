@@ -511,9 +511,9 @@ function parseLegacySizeQuery(p: AdhocParser): SizeQuery {
   eatWhitespace(p);
   let comparator;
   if (measurement.startsWith("min-")) {
-    comparator = Comparator.GREATER_THAN;
+    comparator = Comparator.GREATER_OR_EQUAL;
   } else if (measurement.startsWith("max-")) {
-    comparator = Comparator.LESS_THAN;
+    comparator = Comparator.LESS_OR_EQUAL;
   } else {
     throw Error(`Unknown legacy container query ${measurement}`);
   }
@@ -538,8 +538,8 @@ function parseComparator(p: AdhocParser): Comparator {
     assertString(p, "<=");
     return Comparator.LESS_OR_EQUAL;
   }
-  if (lookAhead(">", p)) {
-    assertString(p, ">");
+  if (lookAhead("<", p)) {
+    assertString(p, "<");
     return Comparator.LESS_THAN;
   }
   throw Error(`Unknown comparator`);
