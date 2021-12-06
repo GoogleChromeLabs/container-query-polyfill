@@ -1,5 +1,8 @@
 <!DOCTYPE html>
 <style></style>
+<div style="width: 100px">
+  <h1>Ohai</h1>
+</div>
 <script type="module">
   import { doubleRaf, testSuite, assert } from "./test-utils.js";
   import { transpileStyleSheet } from "/cqfill.js";
@@ -16,12 +19,12 @@
       h1 {
         font-size: 10px;
       }
-      @container (min-width: 200px) {
+      @container (width > 200px) {
         h1 {
           font-size: 30px;
         }
       }
-      @container (max-width: 200px) {
+      @container (width < 200px) {
         h1 {
           font-size: 20px;
         }
@@ -29,16 +32,6 @@
     `);
     document.querySelector("style").innerHTML = parsed;
 
-    await doubleRaf();
-    const div = document.createElement("div");
-    document.body.append(div);
-    await doubleRaf();
-    const h1 = document.createElement("h1");
-    h1.innerText = "lol";
-    div.append(h1);
-    await doubleRaf();
-
-    document.querySelector("div").style = "width: 150px";
     {
       await doubleRaf();
       const { fontSize } = getComputedStyle(document.querySelector("div h1"));
@@ -47,7 +40,7 @@
         `Expected font-size to be 20px, got ${fontSize}`
       );
     }
-    document.querySelector("div").style = "width: 250px";
+    document.querySelector("div").style = "width: 300px";
     {
       await doubleRaf();
       const { fontSize } = getComputedStyle(document.querySelector("div h1"));
