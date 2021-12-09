@@ -46,6 +46,7 @@ My aim is to make the polyfill work correctly for the _majority_ of use-cases, b
 
 - Boolean operations (`and`, `or` and `not`) are supporrted.
 - The polyfill does _not_ support style queries (e.g. `@container style(--color: red)`), as there is no way to get notified of computed style changes.
+- The polyfill does _not_ support pseudo elements (::before & ::after), as they don’t have a real DOM handle and can't be observed with `ResizeObserver`.
 - Container Queries will not work when nested inside a Media Query. For now, the polyfill only supports top-level CQs.
 - Container Query thresholds can only be specified using pixels.
 - Due to the nature of CORS, the polyfill only attempts to handle same-origin and inline stylesheets. Cross-origin stylesheets are not processed, regardless of CORS headers.
