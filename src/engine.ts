@@ -144,18 +144,18 @@ function isQueryFullfilled(
     };
     // Cut off the "px" suffix from the computed styles.
     borderBox.blockSize +=
-      parseInt(computed.paddingBlockStart.slice(0, -2)) +
-      parseInt(computed.paddingBlockEnd.slice(0, -2));
+      parseFloat(computed.paddingBlockStart) +
+      parseFloat(computed.paddingBlockEnd);
     borderBox.inlineSize +=
-      parseInt(computed.paddingInlineStart.slice(0, -2)) +
-      parseInt(computed.paddingInlineEnd.slice(0, -2));
+      parseFloat(computed.paddingInlineStart) +
+      parseFloat(computed.paddingInlineEnd);
   }
   return isQueryFullfilled_internal(condition, borderBox);
 }
 
 function findParentContainer(el: Element, name?: string): Element | null {
   while (el) {
-    el = el.parentElement;
+    el = el.offsetParent;
     if (!containerNames.has(el)) continue;
     if (name) {
       const containerName = containerNames.get(el)!;
@@ -448,12 +448,9 @@ function parseIdentifier(p: AdhocParser): string {
   return match[0];
 }
 
-// This function does stuff like `min-width` => `MinWidth`
+// This function does stuff like `min-width` => `minWidth`
 function undashify(s: string): string {
-  const v = s
-    .replace(/-(\w)/, (_, l) => l.toUpperCase())
-    .replace(/^\w/, (v) => v.toUpperCase());
-  return v;
+  return v.replace(/-\w/g, s => s[1].toUpperCase());
 }
 
 function parseMeasurementName(p: AdhocParser): string {
