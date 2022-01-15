@@ -32,6 +32,8 @@ function init() {
   });
 
   function handleStyleTag(el: HTMLStyleElement) {
+    // Don’t touch empty style tags.
+    if (el.innerHTML.trim().length === 0) return;
     const newSrc = transpileStyleSheet(el.innerHTML);
     el.innerHTML = newSrc;
   }
