@@ -33,23 +33,36 @@
     "dynamic_container",
     "simple_new_syntax",
     "simple_new_long_syntax",
+    "empty_href",
   ];
 
   const { results, iframe } = document.all;
-  const messageStream = new ReadableStream({
-    start(controller) {
-      window.addEventListener("message", (ev) => controller.enqueue(ev.data));
-    },
-  });
+  function nextEvent(el, name) {
+    return new Promise((resolve) => {
+      el.addEventListener(name, (ev) => resolve(ev));
+    });
+  }
+
+  function sleep(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
+
+  function nextEventTimeout(el, name, timeout) {
+    return Promise.race([
+      nextEvent(el, name),
+      sleep(timeout).then(() => ({ data: "Timeout" })),
+    ]);
+  }
+
   async function run() {
     const testResults = {};
     for (const test of TESTS) {
       iframe.src = `./${test}.html`;
-      const reader = messageStream.getReader();
-      const { value: message } = await reader.read();
-      testResults[test] = message;
-      reader.releaseLock();
-      results.innerHTML += `<span><a href="./${test}.html">${test}</a></span><span>${message}</span>`;
+      const result = await nextEventTimeout(window, "message", 2000);
+      testResults[test] = result.data;
+      results.innerHTML += `<span><a href="./${test}.html">${test}</a></span><span>${result.data}</span>`;
     }
     return testResults;
   }

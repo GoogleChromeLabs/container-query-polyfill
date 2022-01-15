@@ -388,6 +388,9 @@ interface Block {
 function parseSelector(p: AdhocParser): string | undefined {
   let startIndex = p.index;
   eatUntil("{", p);
+  if (startIndex === p.index) {
+    throw Error("Empty selector");
+  }
   return p.sheetSrc.slice(startIndex, p.index);
 }
 
@@ -446,14 +449,6 @@ function parseIdentifier(p: AdhocParser): string {
   }
   p.index += match[0].length;
   return match[0];
-}
-
-// This function does stuff like `min-width` => `MinWidth`
-function undashify(s: string): string {
-  const v = s
-    .replace(/-(\w)/, (_, l) => l.toUpperCase())
-    .replace(/^\w/, (v) => v.toUpperCase());
-  return v;
 }
 
 function parseMeasurementName(p: AdhocParser): string {

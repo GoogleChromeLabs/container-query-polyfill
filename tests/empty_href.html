@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<style></style>
+<link rel="stylesheet" href="" />
+<script type="text/x-handlebars">
+  {{#foo}}
+  {{/foo}} <!-- Infinite loop when looking at first { on this line -->
+  {{#foo}}
+  {{/foo}}
+</script>
+<div></div>
+<script type="module">
+  import { doubleRaf, testSuite, assert } from "./test-utils.js";
+  import "/cqfill.js";
+
+  testSuite("Manual transpiling", async () => {});
+</script>
