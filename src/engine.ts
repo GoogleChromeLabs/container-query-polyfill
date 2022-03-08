@@ -288,7 +288,7 @@ export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
 }
 
 function handleContainerProps(rule: Rule, p) {
-  const hasLongHand = rule.block.contents.includes("container-");
+  const hasLongHand = rule.block.contents.includes("container-type:") || rule.block.contents.includes("container-name:");
   const hasShortHand = rule.block.contents.includes("container:");
   if (!hasLongHand && !hasShortHand) return;
   let containerName, containerType;
