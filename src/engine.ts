@@ -469,7 +469,7 @@ function parseThreshold(p: AdhocParser): (el: Element) => number {
   }
 }
 
-const varMatcher = /[a-z-0-9]/g;
+const varMatcher = /[a-z-0-9]*/g;
 const numberMatcher = /[0-9.]*/g;
 /**
  * Will parse any CSS variable string, but will only respect the first and second
