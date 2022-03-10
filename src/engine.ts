@@ -267,6 +267,7 @@ export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
     } else {
       const rule = parseQualifiedRule(p);
       if (!rule) continue;
+      if (rule?.selector.match(/^@media/)?.length) continue;
       handleContainerProps(rule, p);
     }
   }
