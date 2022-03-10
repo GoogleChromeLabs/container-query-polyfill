@@ -22,7 +22,7 @@ interface SizeQuery {
   type: ContainerConditionType.SizeQuery;
   feature: string;
   comparator: Comparator;
-  threshold: number;
+  threshold: (el: Element) => number;
 }
 
 interface ContainerConditionConjunction {
@@ -85,40 +85,42 @@ function translateToLogicalProp(feature: string): string {
 
 function isSizeQueryFulfilled(
   condition: SizeQuery,
-  borderBox: ResizeObserverSize
+  borderBox: ResizeObserverSize,
+  target: Element
 ): boolean {
   const value = borderBox[translateToLogicalProp(condition.feature)];
   switch (condition.comparator) {
     case Comparator.GREATER_OR_EQUAL:
-      return value >= condition.threshold;
+      return value >= condition.threshold(target);
     case Comparator.GREATER_THAN:
-      return value > condition.threshold;
+      return value > condition.threshold(target);
     case Comparator.LESS_OR_EQUAL:
-      return value <= condition.threshold;
+      return value <= condition.threshold(target);
     case Comparator.LESS_THAN:
-      return value < condition.threshold;
+      return value < condition.threshold(target);
   }
 }
 
 function isQueryFullfilled_internal(
   condition: ContainerCondition,
-  borderBox: ResizeObserverSize
+  borderBox: ResizeObserverSize,
+  target: Element
 ): boolean {
   switch (condition.type) {
     case ContainerConditionType.ContainerConditionConjunction:
       return (
-        isQueryFullfilled_internal(condition.left, borderBox) &&
-        isQueryFullfilled_internal(condition.right, borderBox)
+        isQueryFullfilled_internal(condition.left, borderBox, target) &&
+        isQueryFullfilled_internal(condition.right, borderBox, target)
       );
     case ContainerConditionType.ContainerConditionDisjunction:
       return (
-        isQueryFullfilled_internal(condition.left, borderBox) ||
-        isQueryFullfilled_internal(condition.right, borderBox)
+        isQueryFullfilled_internal(condition.left, borderBox, target) ||
+        isQueryFullfilled_internal(condition.right, borderBox, target)
       );
     case ContainerConditionType.ContainerConditionNegation:
-      return !isQueryFullfilled_internal(condition.right, borderBox);
+      return !isQueryFullfilled_internal(condition.right, borderBox, target);
     case ContainerConditionType.SizeQuery:
-      return isSizeQueryFulfilled(condition, borderBox);
+      return isSizeQueryFulfilled(condition, borderBox, target);
     default:
       throw Error("wtf?");
   }
@@ -150,7 +152,7 @@ function isQueryFullfilled(
       parseInt(computed.paddingInlineStart.slice(0, -2)) +
       parseInt(computed.paddingInlineEnd.slice(0, -2));
   }
-  return isQueryFullfilled_internal(condition, borderBox);
+  return isQueryFullfilled_internal(condition, borderBox, entry.target);
 }
 
 function findParentContainer(el: Element, name?: string): Element | null {
@@ -456,15 +458,65 @@ function parseMeasurementName(p: AdhocParser): string {
   return parseIdentifier(p).toLowerCase();
 }
 
+function parseThreshold(p: AdhocParser): (el: Element) => number {
+  if (lookAhead("var", p)) {
+    return parseVar(p);
+  }
+  // TODO: Support other units?
+  else {
+    return (_) => parsePixel(p);
+  }
+}
+
+const varMatcher = /[a-z-0-9]/g;
 const numberMatcher = /[0-9.]*/g;
-function parseThreshold(p: AdhocParser): number {
+/**
+ * Will parse any CSS variable string, but will only respect the first and second
+ * arguments given. Also, the second argument must be expressed in pixels only.
+ * @param p Parser
+ * @returns A function that will compute this query's threshold
+ */
+function parseVar(p: AdhocParser): (el: Element) => number {
+  assertString(p, "var(");
+  eatWhitespace(p);
+  varMatcher.lastIndex = p.index;
+  const match = varMatcher.exec(p.sheetSrc);
+  if (!match) {
+    throw parseError(p, "Expected a CSS variable");
+  }
+  p.index += match[0].length;
+  const varName = match[0];
+  eatWhitespace(p);
+  let fallbackFn: (el: Element) => number = 
+    (_) => { throw new Error(`Couldn't find variable named '${varName}' and no other value was given`) }
+  if (peek(p) == ',') {
+    assertString(p, ',');
+    eatWhitespace(p);
+    fallbackFn = parseThreshold(p);
+    eatWhitespace(p);
+  }
+  assertString(p, ")");
+  return (el) => {
+    const varVal = getComputedStyle(el).getPropertyValue(varName);
+    if (!varVal) return fallbackFn(el);
+    else {
+      const varValParser = { sheetSrc: varVal, index: 0 } as AdhocParser;
+      try {
+        return parsePixel(varValParser);
+      } catch (err) {
+        throw parseError(varValParser, `Error with '${varName}': ${err}`);
+      }
+    }
+  }
+}
+
+function parsePixel(p: AdhocParser): number {
   numberMatcher.lastIndex = p.index;
   const match = numberMatcher.exec(p.sheetSrc);
   if (!match) {
     throw parseError(p, "Expected a number");
   }
   p.index += match[0].length;
-  // TODO: Support other units?
   assertString(p, "px");
   const value = parseFloat(match[0]);
   if (Number.isNaN(value)) {
