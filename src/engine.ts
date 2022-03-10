@@ -464,7 +464,8 @@ function parseThreshold(p: AdhocParser): (el: Element) => number {
   }
   // TODO: Support other units?
   else {
-    return (_) => parsePixel(p);
+    const num = parsePixel(p);
+    return (_) => num;
   }
 }
 
