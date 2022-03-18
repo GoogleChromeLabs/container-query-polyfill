@@ -279,7 +279,7 @@ export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
   }
 
   p.sheetSrc = p.sheetSrc.replace(
-    /url\(["']*([^)"']+)["']*\)/g,
+    /url\(["']*([^#)"'][^)"']*)["']*\)/g,
     (match, url) => {
       return `url(${new URL(url, srcUrl)})`;
     }
