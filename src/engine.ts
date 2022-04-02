@@ -264,6 +264,12 @@ export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
       const replacement = stringifyContainerQuery(query);
       replacePart(startIndex, endIndex, replacement, p);
       registerContainerQuery(query);
+    } else if (lookAhead("@", p)) {
+      // Skip nested rules. Not supported atm.
+      // Otherwise parseQualifiedRule below will parse @-preludes as selectors
+      // and start matching those with querySelector causing exceptions.
+      eatUntil("{", p);
+      eatBlock(p);
     } else {
       const rule = parseQualifiedRule(p);
       if (!rule) continue;
