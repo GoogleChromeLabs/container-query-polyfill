@@ -7,10 +7,12 @@
 </div>
 <script type="module">
   import { doubleRaf, testSuite, assert } from "./test-utils.js";
-  import { transpileStyleSheet } from "/cqfill.js";
+  import { transpileStyleSheet } from "/../dist/src/cqfill.min.js";
 
   testSuite("Manual transpiling", async () => {
     const parsed = transpileStyleSheet(`
+      @container name (min-width: 0px) { main { --match:true; } }
+
       #a {
         outline: 1px solid red;
         height: 150px;
@@ -42,7 +44,8 @@
       { width: 250, height: 150, expectedPropValues: { fontSize: "10px" } },
     ];
     for (const { width, height, expectedPropValues } of configs) {
-      a.style = `width: ${width}px; height: ${height}px;`;
+      const style = `width: ${width}px; height: ${height}px;`;
+      a.style = style;
       await doubleRaf();
       const computed = getComputedStyle(document.querySelector("h1"));
       for (const [prop, expectedValue] of Object.entries(expectedPropValues)) {

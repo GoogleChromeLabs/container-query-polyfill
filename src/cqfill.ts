@@ -11,10 +11,23 @@
  * limitations under the License.
  */
 
-import { transpileStyleSheet } from "./engine.js";
+import {init as initEngine, preinit, transpileStyleSheet} from './engine.js';
+
+interface StyleSheetState {
+  revert(): void;
+  errors: string[];
+}
+
+const STYLESHEETS: StyleSheetState[] = [];
+let sheetObserver: MutationObserver | null;
 
 function init() {
-  const sheetObserver = new MutationObserver((entries) => {
+  preinit();
+  if (sheetObserver) {
+    sheetObserver.disconnect();
+  }
+
+  sheetObserver = new MutationObserver(entries => {
     for (const entry of entries) {
       for (const addedNode of entry.addedNodes) {
         if (addedNode instanceof HTMLStyleElement) {
@@ -34,29 +47,73 @@ function init() {
   function handleStyleTag(el: HTMLStyleElement) {
     // Don’t touch empty style tags.
     if (el.innerHTML.trim().length === 0) return;
-    const newSrc = transpileStyleSheet(el.innerHTML);
+    const src = el.innerHTML;
+    const [errors, newSrc] = transpileStyleSheet(el.innerHTML);
     el.innerHTML = newSrc;
+
+    STYLESHEETS.push({
+      revert: () => {
+        el.innerHTML = src;
+      },
+      errors,
+    });
   }
 
   async function handleLinkedStylesheet(el: HTMLLinkElement) {
-    if (el.rel !== "stylesheet") return;
+    if (el.rel !== 'stylesheet') return;
+    const originalUrl = el.href;
     const srcUrl = new URL(el.href, document.baseURI);
     if (srcUrl.origin !== location.origin) return;
-    const src = await fetch(srcUrl.toString()).then((r) => r.text());
-    const newSrc = transpileStyleSheet(src, srcUrl.toString());
-    const blob = new Blob([newSrc], { type: "text/css" });
+    const src = await fetch(srcUrl.toString()).then(r => r.text());
+    const [errors, newSrc] = transpileStyleSheet(src, srcUrl.toString());
+    const blob = new Blob([newSrc], {type: 'text/css'});
     el.href = URL.createObjectURL(blob);
+    STYLESHEETS.push({
+      revert: () => {
+        el.href = originalUrl;
+      },
+      errors,
+    });
   }
 
-  document.querySelectorAll("style").forEach((tag) => handleStyleTag(tag));
-  document
-    .querySelectorAll("link")
-    .forEach((tag) => handleLinkedStylesheet(tag));
+  const oldSupports = CSS.supports;
+  CSS.supports = (ident: string) => {
+    if (ident === 'container-type:size') {
+      return true;
+    }
+    return oldSupports(ident);
+  };
+
+  initEngine();
+
+  document.querySelectorAll('style').forEach(tag => handleStyleTag(tag));
+  document.querySelectorAll('link').forEach(tag => handleLinkedStylesheet(tag));
 }
 
-const supportsContainerQueries = "container" in document.documentElement.style;
+const supportsContainerQueries = 'container' in document.documentElement.style;
+(window as any).cqfillRevert = function cqfillRevert(): Promise<string[]> {
+  if (supportsContainerQueries) {
+    return Promise.resolve([]);
+  }
+  let errors: string[] = [];
+  STYLESHEETS.forEach(s => {
+    errors = errors.concat(s.errors);
+    s.revert();
+  });
+  STYLESHEETS.length = 0;
+
+  return new Promise(resolve => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        init();
+        resolve(errors);
+      });
+    });
+  });
+};
+
 if (!supportsContainerQueries) {
   init();
 }
 
-export { transpileStyleSheet };
+export {transpileStyleSheet};

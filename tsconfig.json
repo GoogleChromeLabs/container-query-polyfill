@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist",
+    "lib": ["ES2018", "DOM", "DOM.Iterable"],
+    "strict": true,
+    "target": "es2018",
+    "module": "es2022",
+    "moduleResolution": "node",
+    "types": [],
+    "esModuleInterop": true
+  },
+  "include": ["src/**/*.ts", "tests/**/*.ts"]
+}

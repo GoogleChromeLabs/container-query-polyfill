@@ -5,7 +5,7 @@
 </div>
 <script type="module">
   import { doubleRaf, testSuite, assertEquals } from "./test-utils.js";
-  import { transpileStyleSheet } from "/cqfill.js";
+  import { transpileStyleSheet } from "/../dist/src/cqfill.min.js";
 
   testSuite("Manual transpiling", async () => {
     const parsed = transpileStyleSheet(`
@@ -18,7 +18,7 @@
         --_day-height: 1;
         --_day-column: 1;
         
-        container: inline-size;
+        container-type: inline-size;
         position: relative;
         scroll-margin-block-start: 10vh;
         grid-row: span var(--_day-height);

@@ -5,7 +5,7 @@
 </div>
 <script type="module">
   import { doubleRaf, testSuite, assert } from "./test-utils.js";
-  import { transpileStyleSheet } from "/cqfill.js";
+  import { transpileStyleSheet } from "/../dist/src/cqfill.min.js";
 
   testSuite("Manual transpiling", async () => {
     const parsed = transpileStyleSheet(`
@@ -19,12 +19,12 @@
       h1 {
         font-size: 10px;
       }
-      @container size(width > 200px) {
+      @container ((((width > 200px)))) {
         h1 {
           font-size: 30px;
         }
       }
-      @container size(width < 200px) {
+      @container (width < 200px) {
         h1 {
           font-size: 20px;
         }

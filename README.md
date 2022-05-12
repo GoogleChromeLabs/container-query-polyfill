@@ -7,9 +7,9 @@ A tiny polyfill for [CSS Container Queries][mdn], weighing about 1.6kB brotli’
 Ideally, the polyfill is only loaded if the browser doesn’t support Container Queries natively. In a modern setup with a bundler that uses ES modules, the following snippet should work:
 
 ```js
-const supportsContainerQueries = "container" in document.documentElement.style;
+const supportsContainerQueries = 'container' in document.documentElement.style;
 if (!supportsContainerQueries) {
-  import("container-query-polyfill");
+  import('container-query-polyfill');
 }
 ```
 

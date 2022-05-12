@@ -23,7 +23,7 @@
 </style>
 <script type="module">
   import { doubleRaf, testSuite, assert } from "./test-utils.js";
-  import "/cqfill.js";
+  import { transpileStyleSheet } from "/../dist/src/cqfill.min.js";
 
   testSuite("Manual transpiling", async () => {
     const main = document.createElement("main");
