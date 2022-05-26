@@ -48,14 +48,13 @@ function init() {
     // Don’t touch empty style tags.
     if (el.innerHTML.trim().length === 0) return;
     const src = el.innerHTML;
-    const [errors, newSrc] = transpileStyleSheet(el.innerHTML);
-    el.innerHTML = newSrc;
+    el.innerHTML = transpileStyleSheet(el.innerHTML);
 
     STYLESHEETS.push({
       revert: () => {
         el.innerHTML = src;
       },
-      errors,
+      errors: [],
     });
   }
 
@@ -65,14 +64,14 @@ function init() {
     const srcUrl = new URL(el.href, document.baseURI);
     if (srcUrl.origin !== location.origin) return;
     const src = await fetch(srcUrl.toString()).then(r => r.text());
-    const [errors, newSrc] = transpileStyleSheet(src, srcUrl.toString());
+    const newSrc = transpileStyleSheet(src, srcUrl.toString());
     const blob = new Blob([newSrc], {type: 'text/css'});
     el.href = URL.createObjectURL(blob);
     STYLESHEETS.push({
       revert: () => {
         el.href = originalUrl;
       },
-      errors,
+      errors: [],
     });
   }
 

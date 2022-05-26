@@ -14,9 +14,7 @@
 export function doubleRaf() {
   return new Promise(resolve => {
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        resolve();
-      });
+      resolve();
     });
   });
 }

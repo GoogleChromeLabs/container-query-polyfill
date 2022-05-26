@@ -238,6 +238,7 @@ export interface DeclarationNode {
 export interface Parser<T> {
   value: T;
   errorIndices: number[];
+  index: number;
 
   at(offset: number): T;
   consume(count: number): T;
@@ -314,29 +315,28 @@ export const enum CodePoints {
 type CodePoint = number;
 
 function createParser<T>(nodes: ReadonlyArray<T>, sentinel: T): Parser<T> {
-  let currIndex = -1;
-
   const parser: Parser<T> = {
     value: sentinel,
     errorIndices: [],
+    index: -1,
 
     at(offset) {
-      const index = currIndex + offset;
+      const index = parser.index + offset;
       return index >= nodes.length ? sentinel : nodes[index];
     },
 
     consume(count: number) {
-      currIndex += count;
+      parser.index += count;
       parser.value = parser.at(0);
       return parser.value;
     },
 
     reconsume() {
-      currIndex -= 1;
+      parser.index -= 1;
     },
 
     error() {
-      parser.errorIndices.push(currIndex);
+      parser.errorIndices.push(parser.index);
     },
   };
 
@@ -1360,7 +1360,7 @@ function serializeInternal(node: Node | Array<Node>, level: number): string {
       return node.value;
 
     case Type.StringToken:
-      return `"${node.value}"`;
+      return `"${CSS.escape(node.value)}"`;
 
     case Type.CommaToken:
       return ',';

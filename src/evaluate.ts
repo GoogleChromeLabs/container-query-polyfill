@@ -11,7 +11,7 @@
  * limitations under the License.
  */
 
-import {ComparisonOperator} from './utils/parse-media-feature';
+import {ComparisonOperator} from './utils/parse-media-feature.js';
 
 export const enum ExpressionType {
   Negate = 1,
@@ -114,18 +114,21 @@ export const enum SizeFeature {
 }
 
 export const enum WritingMode {
-  Horizontal,
+  Horizontal = 1,
   Vertical,
 }
 
 export const enum ContainerType {
-  Size,
+  Size = 1,
   InlineSize,
 }
 
 export interface QueryContext {
-  width: number;
-  height: number;
+  type: ContainerType;
+  inlineSize: number;
+  blockSize: number;
+  fontSize: number;
+  rootFontSize: number;
   writingMode: WritingMode;
 }
 
@@ -133,24 +136,49 @@ function evaluateFeatureValue(
   feature: SizeFeature,
   context: QueryContext
 ): Value {
-  // TODO: Correctly handle writing mode and container type
+  const inlineSize = context.inlineSize;
+  const blockSize =
+    context.type === ContainerType.Size ? context.blockSize : null;
+
+  const width =
+    context.writingMode === WritingMode.Horizontal ? inlineSize : blockSize;
+  const height =
+    context.writingMode === WritingMode.Horizontal ? blockSize : inlineSize;
+
   switch (feature) {
     case SizeFeature.Width:
+      return width !== null
+        ? {type: ValueType.Dimension, value: width, unit: 'px'}
+        : {type: ValueType.Unknown};
+
     case SizeFeature.InlineSize:
-      return {type: ValueType.Dimension, value: context.width, unit: 'px'};
+      return {type: ValueType.Dimension, value: inlineSize, unit: 'px'};
 
     case SizeFeature.Height:
+      return height !== null
+        ? {type: ValueType.Dimension, value: height, unit: 'px'}
+        : {type: ValueType.Unknown};
+
     case SizeFeature.BlockSize:
-      return {type: ValueType.Dimension, value: context.height, unit: 'px'};
+      return blockSize !== null
+        ? {type: ValueType.Dimension, value: blockSize, unit: 'px'}
+        : {type: ValueType.Unknown};
 
     case SizeFeature.AspectRatio:
-      return {type: ValueType.Number, value: context.width / context.height};
+      return blockSize !== null
+        ? {
+            type: ValueType.Number,
+            value: inlineSize / blockSize,
+          }
+        : {type: ValueType.Unknown};
 
     case SizeFeature.Orientation:
-      return {
-        type: ValueType.Orientation,
-        value: context.height >= context.width ? 'portrait' : 'landscape',
-      };
+      return blockSize !== null
+        ? {
+            type: ValueType.Orientation,
+            value: blockSize >= inlineSize ? 'portrait' : 'landscape',
+          }
+        : {type: ValueType.Unknown};
   }
 }
 
@@ -174,44 +202,60 @@ function evaluateExpressionToValue(
   }
 }
 
-function compareNumbers(
+function compareNumericValue(
   lhs: number,
   rhs: number,
   operator: ComparisonOperator
 ): Value {
-  let value: boolean;
   switch (operator) {
     case ComparisonOperator.EQUAL:
-      value = lhs === rhs;
-      break;
+      return {type: ValueType.Boolean, value: lhs === rhs};
 
     case ComparisonOperator.GREATER_THAN:
-      value = lhs > rhs;
-      break;
+      return {type: ValueType.Boolean, value: lhs > rhs};
 
     case ComparisonOperator.GREATER_THAN_EQUAL:
-      value = lhs >= rhs;
-      break;
+      return {type: ValueType.Boolean, value: lhs >= rhs};
 
     case ComparisonOperator.LESS_THAN:
-      value = lhs < rhs;
-      break;
+      return {type: ValueType.Boolean, value: lhs < rhs};
 
     case ComparisonOperator.LESS_THAN_EQUAL:
-      value = lhs <= rhs;
-      break;
+      return {type: ValueType.Boolean, value: lhs <= rhs};
   }
-  return {type: ValueType.Boolean, value};
+}
+
+function evaluateDimensionToPixels(
+  dimension: DimensionValue,
+  context: QueryContext
+): number | null {
+  switch (dimension.unit) {
+    case 'px':
+      return dimension.value;
+
+    case 'rem':
+      return dimension.value * context.rootFontSize;
+
+    case 'em':
+      return dimension.value * context.fontSize;
+
+    default:
+      return null;
+  }
 }
 
 function compareDimensions(
   lhs: DimensionValue,
   rhs: DimensionValue,
-  operator: ComparisonOperator
+  operator: ComparisonOperator,
+  context: QueryContext
 ): Value {
-  return lhs.unit === rhs.unit
-    ? compareNumbers(lhs.value, rhs.value, operator)
-    : {type: ValueType.Unknown};
+  const left = evaluateDimensionToPixels(lhs, context);
+  const right = evaluateDimensionToPixels(rhs, context);
+
+  return left === null || right === null
+    ? {type: ValueType.Unknown}
+    : compareNumericValue(left, right, operator);
 }
 
 function compareOrientations(
@@ -253,10 +297,19 @@ function evaluateComparisonExpression(
   const operator = node.operator;
   switch (type) {
     case ValueType.Number:
-      return compareNumbers((left as NumberValue).value, right.value, operator);
+      return compareNumericValue(
+        (left as NumberValue).value,
+        right.value,
+        operator
+      );
 
     case ValueType.Dimension:
-      return compareDimensions(left as DimensionValue, right, operator);
+      return compareDimensions(
+        left as DimensionValue,
+        right,
+        operator,
+        context
+      );
 
     case ValueType.Orientation:
       return compareOrientations(left as OrientationValue, right, operator);

@@ -11,7 +11,13 @@
  * limitations under the License.
  */
 
-import {consumeWhitespace, createNodeParser, Node, Parser, Type} from './css';
+import {
+  consumeWhitespace,
+  createNodeParser,
+  Node,
+  Parser,
+  Type,
+} from './css.js';
 
 export const enum ComparisonOperator {
   EQUAL = 1,

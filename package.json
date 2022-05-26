@@ -13,7 +13,7 @@
   ],
   "scripts": {
     "build:clean": "rimraf ./dist/",
-    "build:iife:minified": "esbuild --bundle ./dist/src/cqfill.js --outfile=./dist/src/cqfill.iife.min.js --format=iife --minify",
+    "build:iife:minified": "esbuild --bundle ./dist/src/cqfill.js --outfile=./dist/src/cqfill.iife.min.js --format=iife",
     "build:esm:minified": "esbuild --bundle ./dist/src/cqfill.js --outfile=./dist/src/cqfill.min.js --format=esm --minify",
     "build:tsc": "tsc",
     "build": "npm run build:tsc && npm run build:esm:minified && npm run build:iife:minified",

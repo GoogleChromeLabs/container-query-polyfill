@@ -18,15 +18,15 @@ import {
   SizeFeature,
   Value,
   ValueType,
-} from './evaluate';
+} from './evaluate.js';
 import {
   consumeWhitespace,
   createNodeParser,
   Node,
   Parser,
   Type,
-} from './utils/css';
-import {consumeMediaFeature, FeatureType} from './utils/parse-media-feature';
+} from './utils/css.js';
+import {consumeMediaFeature, FeatureType} from './utils/parse-media-feature.js';
 
 export interface ContainerRule {
   names: string[];
@@ -128,7 +128,7 @@ function consumeValue(nodes: ReadonlyArray<Node>): ExpressionNode | null {
       value = {
         type: ValueType.Dimension,
         value: parseInt(node.value),
-        unit: node.unit,
+        unit: node.unit.toLowerCase(),
       } as Value;
       break;
 
