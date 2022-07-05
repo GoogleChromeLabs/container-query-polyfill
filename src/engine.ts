@@ -290,7 +290,8 @@ export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
 function handleContainerProps(rule: Rule, p) {
   const hasLongHand = rule.block.contents.includes("container-");
   const hasShortHand = rule.block.contents.includes("container:");
-  if (!hasLongHand && !hasShortHand) return;
+  const isInvalid = rule.selector.startsWith('@');
+  if (isInvalid || !hasLongHand && !hasShortHand) return;
   let containerName, containerType;
   if (hasLongHand) {
     containerName = /container-name\s*:([^;}]+)/
