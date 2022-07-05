@@ -11,6 +11,7 @@
 <script type="module">
   const TESTS = [
     "simple",
+    "container_classname",
     "dynamic",
     "nested",
     "and",
@@ -62,7 +63,7 @@
       iframe.src = `./${test}.html`;
       const result = await nextEventTimeout(window, "message", 2000);
       testResults[test] = result.data;
-      results.innerHTML += `<span><a href="./${test}.html">${test}</a></span><span>${result.data}</span>`;
+      results.innerHTML += `<span><a href="./${test}.html">${test}</a></span><span>${JSON.stringify(result.data)}</span>`;
     }
     return testResults;
   }
