@@ -1,111 +1,114 @@
 <!DOCTYPE html>
-<style></style>
+<style>
+  #a {
+    outline: 1px solid red;
+    height: 150px;
+    resize: both;
+    overflow: auto;
+    container: a / size;
+  }
+
+  #b {
+    outline: 1px solid blue;
+    height: 140px;
+    resize: both;
+    overflow: auto;
+    container-type: size;
+  }
+
+  h1 {
+    font-size: 10px;
+    line-height: 10px;
+  }
+
+  @container (min-width: 200px) {
+    h1 {
+      font-size: 30px;
+    }
+  }
+
+  @container (max-width: 200px) {
+    h1 {
+      font-size: 20px;
+    }
+  }
+
+  @container a (max-width: 300px) {
+    h1 {
+      line-height: 30px;
+    }
+  }
+
+  @container a (min-width: 300px) {
+    h1 {
+      line-height: 40px;
+    }
+  }
+</style>
 <div id="a">
   <div id="b">
     <h1>H1</h1>
   </div>
 </div>
 <script type="module">
-  import { doubleRaf, testSuite, assert } from "./test-utils.js";
-  import { transpileStyleSheet } from "/cqfill.js";
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assert} from './test-utils.js';
 
-  testSuite("Manual transpiling", async () => {
-    const parsed = transpileStyleSheet(`
-      #a {
-        outline: 1px solid red;
-        height: 150px;
-        resize: both;
-        overflow: auto;
-        container: size / a;
-      }
-      #b {
-        outline: 1px solid blue;
-        height: 140px;
-        resize: both;
-        overflow: auto;
-        container-type: size / b;
-      }
-      h1 {
-        font-size: 10px;
-        line-height: 10px;
-      }
-      @container (min-width: 200px) {
-        h1 {
-          font-size: 30px;
-        }
-      }
-      @container (max-width: 200px) {
-        h1 {
-          font-size: 20px;
-        }
-      }
-      @container a (max-width: 300px) {
-        h1 {
-          line-height: 30px;
-        }
-      }
-      @container a (min-width: 300px) {
-        h1 {
-          line-height: 40px
-        }
-      }
-    `);
-    document.querySelector("style").innerHTML = parsed;
-
-    const a = document.querySelector("#a");
-    const b = document.querySelector("#b");
+  testSuite('Manual transpiling', async () => {
+    const a = document.querySelector('#a');
+    const b = document.querySelector('#b');
     const configs = [
       {
         aWidth: 150,
         bWidth: 150,
-        expectedPropValues: { fontSize: "20px", lineHeight: "30px" },
+        expectedPropValues: {fontSize: '20px', lineHeight: '30px'},
       },
       {
         aWidth: 150,
         bWidth: 250,
-        expectedPropValues: { fontSize: "30px", lineHeight: "30px" },
+        expectedPropValues: {fontSize: '30px', lineHeight: '30px'},
       },
       {
         aWidth: 150,
         bWidth: 350,
-        expectedPropValues: { fontSize: "30px", lineHeight: "30px" },
+        expectedPropValues: {fontSize: '30px', lineHeight: '30px'},
       },
       {
         aWidth: 250,
         bWidth: 150,
-        expectedPropValues: { fontSize: "20px", lineHeight: "30px" },
+        expectedPropValues: {fontSize: '20px', lineHeight: '30px'},
       },
       {
         aWidth: 250,
         bWidth: 250,
-        expectedPropValues: { fontSize: "30px", lineHeight: "30px" },
+        expectedPropValues: {fontSize: '30px', lineHeight: '30px'},
       },
       {
         aWidth: 250,
         bWidth: 350,
-        expectedPropValues: { fontSize: "30px", lineHeight: "30px" },
+        expectedPropValues: {fontSize: '30px', lineHeight: '30px'},
       },
       {
         aWidth: 350,
         bWidth: 150,
-        expectedPropValues: { fontSize: "20px", lineHeight: "40px" },
+        expectedPropValues: {fontSize: '20px', lineHeight: '40px'},
       },
       {
         aWidth: 350,
         bWidth: 250,
-        expectedPropValues: { fontSize: "30px", lineHeight: "40px" },
+        expectedPropValues: {fontSize: '30px', lineHeight: '40px'},
       },
       {
         aWidth: 350,
         bWidth: 350,
-        expectedPropValues: { fontSize: "30px", lineHeight: "40px" },
+        expectedPropValues: {fontSize: '30px', lineHeight: '40px'},
       },
     ];
-    for (const { aWidth, bWidth, expectedPropValues } of configs) {
+    for (const {aWidth, bWidth, expectedPropValues} of configs) {
       a.style = `width: ${aWidth}px`;
       b.style = `width: ${bWidth}px`;
       await doubleRaf();
-      const computed = getComputedStyle(document.querySelector("h1"));
+      const computed = getComputedStyle(document.querySelector('h1'));
       for (const [prop, expectedValue] of Object.entries(expectedPropValues)) {
         assert(
           computed[prop] === expectedValue,

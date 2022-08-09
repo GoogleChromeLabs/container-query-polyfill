@@ -1,72 +1,75 @@
 <!DOCTYPE html>
-<style></style>
+<style>
+  :root {
+  }
+
+  .day {
+    --_day-bg: #e4bb9f;
+    --_day-color: #93592f;
+    --_day-shadow: #edc074;
+    --_day-bg: #f2b970;
+    --_day-height: 1;
+    --_day-column: 1;
+
+    container-type: inline-size;
+    position: relative;
+    scroll-margin-block-start: 10vh;
+    grid-row: span var(--_day-height);
+    grid-column: span var(--_day-column);
+  }
+
+  @media \@container (min-width: 500px) {
+    .day {
+      background: purple;
+    }
+  }
+
+  @media \@container (min-width: 500px) {
+    .day {
+      background: purple;
+    }
+  }
+
+  @container (min-width: 500px) {
+    .day {
+      background: purple;
+    }
+  }
+
+  .day:not([data-day-state='active']) {
+    filter: grayscale(1);
+    cursor: not-allowed;
+  }
+</style>
 <div style="width: 400px" class="day">
   <h1 class="day">Ohai</h1>
 </div>
 <script type="module">
-  import { doubleRaf, testSuite, assertEquals } from "./test-utils.js";
-  import { transpileStyleSheet } from "/cqfill.js";
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assertEquals} from './test-utils.js';
 
-  testSuite("Manual transpiling", async () => {
-    const parsed = transpileStyleSheet(`
-      :root {}
-      .day {
-        --_day-bg: #e4bb9f;
-        --_day-color: #93592f;
-        --_day-shadow: #edc074;
-        --_day-bg: #f2b970;
-        --_day-height: 1;
-        --_day-column: 1;
-        
-        container: inline-size;
-        position: relative;
-        scroll-margin-block-start: 10vh;
-        grid-row: span var(--_day-height);
-        grid-column: span var(--_day-column)
-      }
-      @media \@container (min-width: 500px) {
-        .day {
-          background: purple
-        }
-      }
-      @media \@container (min-width: 500px) {
-        .day {
-          background: purple
-        }
-      }
-      @container (min-width: 500px) {
-        .day {
-          background: purple
-        }
-      }
-      .day:not([data-day-state='active']) {
-        filter: grayscale(1);
-        cursor: not-allowed;
-      } 
-    `);
-    document.querySelector("style").innerHTML = parsed;
-
+  testSuite('Manual transpiling', async () => {
     {
       await doubleRaf();
-      const { backgroundColor } = getComputedStyle(
-        document.querySelector("div h1")
+      const {backgroundColor} = getComputedStyle(
+        document.querySelector('div h1')
       );
       assertEquals(
         backgroundColor,
         `rgba(0, 0, 0, 0)`,
-        "Background color didn’t match"
+        'Background color didn’t match'
       );
     }
-    document.querySelector("div").style = "width: 550px";
+    document.querySelector('div').style = 'width: 550px';
     {
       await doubleRaf();
-      const { backgroundColor } = getComputedStyle(
-        document.querySelector("div h1")
+      const {backgroundColor} = getComputedStyle(
+        document.querySelector('div h1')
       );
       assertEquals(
         backgroundColor,
         `rgb(128, 0, 128)`,
-        "Background color didn’t match"
+        'Background color didn’t match'
       );
     }
   });

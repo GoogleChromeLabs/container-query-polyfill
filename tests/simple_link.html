@@ -4,35 +4,35 @@
   <h1>Ohai</h1>
 </div>
 <script type="module">
-  import { doubleRaf, testSuite, assert, nextEvent } from "./test-utils.js";
-  import "/cqfill.js";
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assert, nextEvent} from './test-utils.js';
 
-  testSuite("Manual transpiling", async () => {
-    const link = document.querySelector("link");
+  testSuite('Manual transpiling', async () => {
+    const link = document.querySelector('link');
     if (
       ![...document.styleSheets].some(
-        (stylesheet) => stylesheet.ownerNode === link
+        stylesheet => stylesheet.ownerNode === link
       )
     ) {
-      await nextEvent(link, "load");
+      await nextEvent(link, 'load');
       await doubleRaf();
     }
 
     await doubleRaf();
     {
       await doubleRaf();
-      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
       assert(
-        fontSize === "20px",
+        fontSize === '20px',
         `Expected font-size to be 20px, got ${fontSize}`
       );
     }
-    document.querySelector("div").style = "width: 300px";
+    document.querySelector('div').style = 'width: 300px';
     {
       await doubleRaf();
-      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
       assert(
-        fontSize === "30px",
+        fontSize === '30px',
         `Expected font-size to be 30px, got ${fontSize}`
       );
     }

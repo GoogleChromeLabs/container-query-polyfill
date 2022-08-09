@@ -1,32 +1,49 @@
 {
   "name": "container-query-polyfill",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "",
   "type": "module",
-  "main": "cqfill.js",
-  "module": "cqfill.js",
+  "module": "dist/container-query-polyfill.modern.js",
+  "unpkg": "dist/container-query-polyfill.modern.js",
+  "publishConfig": {
+    "source": "src/index.ts"
+  },
+  "exports": {
+    "default": "./dist/container-query-polyfill.modern.js"
+  },
   "files": [
     "README.md",
     "LICENSE",
-    "src/*",
-    "cqfill.iife.min.js",
-    "cqfill.min.js",
-    "cqfill.js",
+    "dist/src/*",
     "package.json"
   ],
   "scripts": {
-    "build:iife:minified": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.iife.min.js --format=iife --minify",
-    "build:esm:minified": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.min.js --format=esm --minify",
-    "build:esm:debug": "esbuild --bundle ./src/cqfill.ts --outfile=cqfill.js --format=esm",
-    "build": "npm run build:esm:debug && npm run build:esm:minified && npm run build:iife:minified",
-    "serve": "superstatic -p 8081 ."
+    "build:clean": "rimraf ./dist/",
+    "build:wpt": "microbundle -f modern --no-compress --define PACKAGE_VERSION=${npm_package_version},IS_WPT_BUILD=1",
+    "build": "microbundle -f modern --define PACKAGE_VERSION=${npm_package_version},IS_WPT_BUILD=0",
+    "lint": "eslint '**/*.ts'",
+    "prettier:fix": "prettier --write .",
+    "serve": "superstatic -p 9606 .",
+    "test": "node --loader ts-node/esm ./tests/wpt.ts"
   },
-  "author": "Surma <surma@surma.dev>",
+  "author": "Google Chrome Developers <chromium-dev@google.com>",
+  "contributors": [
+    "Surma <surma@surma.dev>"
+  ],
   "license": "Apache-2.0",
-  "dependencies": {
-    "esbuild": "^0.13.13"
-  },
   "devDependencies": {
-    "superstatic": "^7.1.0"
+    "@types/async": "^3.2.14",
+    "@types/selenium-webdriver": "^4.1.1",
+    "@typescript-eslint/eslint-plugin": "^5.18.0",
+    "@typescript-eslint/parser": "^5.18.0",
+    "async": "^3.2.4",
+    "browserstack-local": "^1.5.1",
+    "eslint": "^8.12.0",
+    "microbundle": "^0.15.0",
+    "prettier": "^2.6.2",
+    "rimraf": "^3.0.2",
+    "selenium-webdriver": "^4.3.0",
+    "superstatic": "^8.0.0",
+    "ts-node": "^10.9.1"
   }
 }

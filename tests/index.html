@@ -10,41 +10,40 @@
 <iframe id="iframe"></iframe>
 <script type="module">
   const TESTS = [
-    "simple",
-    "dynamic",
-    "nested",
-    "and",
-    "not",
-    "or",
-    "named",
-    "named_shorthand",
-    "simple_style",
-    "simple_style_iife",
-    "simple_link",
-    "dynamic_style",
-    "dynamic_link",
-    "realworldstyles1",
-    "parsing_error1",
-    "parsing_error2",
-    "parsing_error3",
-    "cdn_link",
-    "cdn_link_iife",
-    "relative_urls",
-    "dynamic_container",
-    "simple_new_syntax",
-    "simple_new_long_syntax",
-    "empty_href",
+    'simple',
+    'dynamic',
+    'nested',
+    'and',
+    'not',
+    'or',
+    'named',
+    'named_shorthand',
+    'simple_style',
+    'simple_link',
+    'dynamic_style',
+    'dynamic_link',
+    'realworldstyles1',
+    'parsing_error1',
+    'parsing_error2',
+    'cdn_link',
+    'cdn_link_iife',
+    'relative_urls',
+    'dynamic_container',
+    'simple_new_syntax',
+    'simple_new_long_syntax',
+    'empty_href',
+    '@supports',
   ];
 
-  const { results, iframe } = document.all;
+  const {results, iframe} = document.all;
   function nextEvent(el, name) {
-    return new Promise((resolve) => {
-      el.addEventListener(name, (ev) => resolve(ev));
+    return new Promise(resolve => {
+      el.addEventListener(name, ev => resolve(ev));
     });
   }
 
   function sleep(ms) {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       setTimeout(resolve, ms);
     });
   }
@@ -52,7 +51,7 @@
   function nextEventTimeout(el, name, timeout) {
     return Promise.race([
       nextEvent(el, name),
-      sleep(timeout).then(() => ({ data: "Timeout" })),
+      sleep(timeout).then(() => ({data: 'Timeout'})),
     ]);
   }
 
@@ -60,7 +59,7 @@
     const testResults = {};
     for (const test of TESTS) {
       iframe.src = `./${test}.html`;
-      const result = await nextEventTimeout(window, "message", 2000);
+      const result = await nextEventTimeout(window, 'message', 2000);
       testResults[test] = result.data;
       results.innerHTML += `<span><a href="./${test}.html">${test}</a></span><span>${result.data}</span>`;
     }

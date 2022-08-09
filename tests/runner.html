@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=Promise"></script>
+  </head>
+  <body>
+    <style>
+      .test-harness {
+        width: 100%;
+        height: 600px;
+      }
+    </style>
+    <script>
+      function nextEvent(elem, name, predicate) {
+        return new Promise(resolve => {
+          const listener = (...args) => {
+            if (predicate(...args)) {
+              elem.removeEventListener(name, listener);
+              resolve(...args);
+            }
+          };
+          elem.addEventListener(name, listener);
+        });
+      }
+
+      function timeout(ms) {
+        return new Promise(resolve => {
+          setTimeout(resolve, ms);
+        });
+      }
+
+      async function runCqTests(tests) {
+        const testHarness = document.createElement('iframe');
+        testHarness.className = 'test-harness';
+        document.body.appendChild(testHarness);
+
+        for (const data of tests.iframe) {
+          const iframe = document.createElement('iframe');
+          iframe.className = 'test-harness';
+          iframe.id = data[0];
+          iframe.src = data[1];
+          document.body.appendChild(iframe);
+        }
+
+        const results = [];
+        for (const test of tests.js) {
+          testHarness.src = test;
+
+          const res = await Promise.race([
+            nextEvent(
+              window,
+              'message',
+              message => message.data.type === 'complete'
+            ).then(message => message.data),
+            timeout(15 * 1000).then(_ => []),
+          ]);
+
+          results.push([test, res]);
+        }
+
+        const scriptElem = document.createElement('script');
+        scriptElem.setAttribute('id', '__test_results__');
+        scriptElem.text = JSON.stringify(results);
+        document.body.appendChild(scriptElem);
+      }
+
+      window.RUN_CQ_TESTS = runCqTests;
+    </script>
+  </body>
+</html>

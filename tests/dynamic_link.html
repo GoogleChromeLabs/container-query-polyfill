@@ -1,10 +1,10 @@
 <!DOCTYPE html>
 <style></style>
 <script type="module">
-  import { doubleRaf, testSuite, assert } from "./test-utils.js";
-  import "/cqfill.js";
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assert} from './test-utils.js';
 
-  testSuite("Manual transpiling", async () => {
+  testSuite('Manual transpiling', async () => {
     const src = `
       div {
         outline: 1px solid red;
@@ -27,35 +27,35 @@
         }
       }
     `;
-    const blob = new Blob([src], { type: "text/css" });
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
+    const blob = new Blob([src], {type: 'text/css'});
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
     link.href = URL.createObjectURL(blob);
     document.head.append(link);
 
     await doubleRaf();
-    const div = document.createElement("div");
+    const div = document.createElement('div');
     document.body.append(div);
     await doubleRaf();
-    const h1 = document.createElement("h1");
-    h1.innerText = "lol";
+    const h1 = document.createElement('h1');
+    h1.innerText = 'lol';
     div.append(h1);
 
-    document.querySelector("div").style = "width: 200px";
+    document.querySelector('div').style = 'width: 200px';
     {
       await doubleRaf();
-      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
       assert(
-        fontSize === "20px",
+        fontSize === '20px',
         `Expected font-size to be 20px, got ${fontSize}`
       );
     }
-    document.querySelector("div").style = "width: 300px";
+    document.querySelector('div').style = 'width: 300px';
     {
       await doubleRaf();
-      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
       assert(
-        fontSize === "30px",
+        fontSize === '30px',
         `Expected font-size to be 30px, got ${fontSize}`
       );
     }

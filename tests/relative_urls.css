@@ -12,20 +12,20 @@ div {
 }
 #doublequotes span {
   grid-area: 1/1;
-  background: url("/tests/red.png");
+  background: url('/tests/red.png');
 }
 #singlequotes span {
   grid-area: 1/1;
-  background: url("/tests/red.png");
+  background: url('/tests/red.png');
 }
 @container (min-width: 200px) {
   #noquotes span {
     background: url(/tests/green.png);
   }
   #doublequotes span {
-    background: url("/tests/green.png");
+    background: url('/tests/green.png');
   }
   #singlequotes span {
-    background: url("/tests/green.png");
+    background: url('/tests/green.png');
   }
 }

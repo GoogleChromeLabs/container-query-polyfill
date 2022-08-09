@@ -1,80 +1,124 @@
 # Container Query Polyfill
 
-A tiny polyfill for [CSS Container Queries][mdn], weighing about 1.6kB brotli’d. It transpiles CSS code on the client-side and implements Container Query functionality using [ResizeObserver] and [MutationObserver].
+A small (9 kB compressed) polyfill for CSS Container Queries using [`ResizeObserver`](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver) and [`MutationObserver`](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver) supporting the full [`@container`](https://drafts.csswg.org/css-contain-3/) query syntax:
 
-## Usage
+- Discrete queries (`width: 300` and `min-width: 300px`)
+- Range queries (`200px < width < 400px` and `width < 400px`)
+- Container relative length units (`cqw`, `cqh`, `cqi`, `cqb`, `cqmin`, and `cqmax`) in properties and keyframes
 
-Ideally, the polyfill is only loaded if the browser doesn’t support Container Queries natively. In a modern setup with a bundler that uses ES modules, the following snippet should work:
+## Getting Started
+
+To use the polyfill, add this script tag to the head of your document: :
 
 ```js
-const supportsContainerQueries = "container" in document.documentElement.style;
-if (!supportsContainerQueries) {
-  import("container-query-polyfill");
-}
+<script type="module">
+  if (!("container" in document.documentElement.style)) {
+    import("https://unpkg.com/container-query-polyfill@^0.2.0");
+  }
+</script>
 ```
 
-If you are in a legacy setup (or just want to prototype quickly), there’s also an IIFE version that you can include using a `<script>` tag:
+You may also wish to use a service to conditionally deliver the polyfill based on `User-Agent`, or self-host it on your own origin.
 
-```html
-<script src="https://unpkg.com/container-query-polyfill/cqfill.iife.min.js"></script>
-```
+> **Note**
+> All browsers have support for container queries released or on their roadmap, so it's recommended that you avoid bundling the polyfill with your other code.
 
-## Browser support
-
-The polyfill relies on [ResizeObserver], [MutationObserver] and [`:is()`][is selector]. Therefore, it should work in all modern browsers, specifically Chrome/Edge 88+, Firefox 78+ and Safari 14+.
-
-## Feature support & limitations
-
-My aim is to make the polyfill work correctly for the _majority_ of use-cases, but cut corners where possible to keep the polyfill simple(-ish), small and efficient. The limitations arising from these tradeoffs are listed below.
-
-(These decisions _can_ be revisited if they pose a significant hurdle and there is a good way to implement them. Please open an issue!)
-
-- Both the old CQ syntax as well as the new syntax are supported:
+For the best user experience, it's recommended that you initially only use the polyfill for content below-the-fold and use `@supports` queries to temporarily replace it with a loading indicator until the polyfill is ready to display it:
 
 ```css
-/* These are all equivalent */
+@supports not (container-type: inline-size) {
+  .container,
+  footer {
+    display: none;
+  }
+
+  .loader {
+    display: flex;
+  }
+}
+```
+
+You can view a more complete demo [here](https://codesandbox.io/s/smoosh-glitter-m2ub4w?file=/index.html). On sufficiently fast networks and devices, or devices that natively support Container Queries, this loading indicator will never be displayed.
+
+> **Note**
+> Keep in mind that this technique effectively trades off LCP for less jank during initial load, so you may see regressions in the former as a result, particularly on low end devices.
+
+## Limitations
+
+- **CSS first**: The polyfill currently only supports `<style>` and `<link>` elements. Inline styles via the `style` attribute or CSSOM methods are not polyfilled. Likewise, JavaScript APIs like `CSSContainerRule` are not polyfilled, and APIs like `CSS.supports()` are not monkey-patched.
+- **Best effort**: Style changes that do not lead to observable DOM or layout mutations (e.g. `font-size` in a container without content) may not be detected, or may be detected a frame late on some browsers.
+- Currently, there is no support for Shadow DOM, or functions like `calc(...)` in container conditions. Your contribution would be welcome!
+
+## Supporting browsers without `:where()`
+
+The polyfill uses the CSS [`:where()`](https://developer.mozilla.org/en-US/docs/Web/CSS/:where) pseudo-class to avoid changing the specificity of your rules. This pseudo-class is relatively new, however. If you need to support browsers without it, you will need to append the dummy `:not(container-query-polyfill)` pseudo-class to the originating element of every selector under a `@container` block:
+
+<table>
+<tr>
+<td> Before </td> <td> After </td>
+</tr>
+<tr>
+<td>
+
+```css
 @container (min-width: 200px) {
-  /* ... */
+  #foo {
+    /* ... */
+  }
+
+  .bar {
+    /* ... */
+  }
+
+  #foo,
+  .bar {
+    /* ... */
+  }
+
+  ul > li {
+    /* ... */
+  }
+
+  ::before {
+    /* ... */
+  }
 }
-@container (width >= 200px) {
-  /* ... */
+```
+
+</td>
+<td>
+
+```css
+@container (min-width: 200px) {
+  #foo:not(.container-query-polyfill) {
+    /* ... */
+  }
+
+  .bar:not(.container-query-polyfill) {
+    /* ... */
+  }
+
+  #foo:not(.container-query-polyfill),
+  .bar:not(.container-query-polyfill) {
+    /* ... */
+  }
+
+  ul > li:not(.container-query-polyfill) {
+    /* ... */
+  }
+
+  :not(.container-query-polyfill)::before {
+    /* ... */
+  }
 }
-@container size(width >= 200px) {
-  /* ... */
-}
 ```
 
-- Boolean operations (`and`, `or` and `not`) are supported.
-- The polyfill does _not_ support style queries (e.g. `@container style(--color: red)`), as there is no way to get notified of computed style changes.
-- The polyfill does _not_ support pseudo elements (::before & ::after), as they don’t have a real DOM handle and can't be observed with `ResizeObserver`.
-- Container Queries will not work when nested inside a Media Query. For now, the polyfill only supports top-level CQs.
-- Container Query thresholds can only be specified using pixels.
-- Due to the nature of CORS, the polyfill only attempts to handle same-origin and inline stylesheets. Cross-origin stylesheets are not processed, regardless of CORS headers.
-- CQs inside ShadowDOM are not supported yet.
-- Don’t do weird interspersed comments, okay? Like `@container /* here’s a comment! */ (min-width: 1px) { ... }`. Just don’t.
+</td>
+</tr>
+</table>
 
-## Building & Testing
+This is to ensure the specificity of your rules never changes (e.g. while the polyfill is loading, or on browsers with native support for container queries). On browsers without `:where()` supports, rules without the dummy will be ignored.
 
-This project uses [esbuild] to bundle the project, which is automatically installed via npm. To build the polyfill, run:
+## ResizeObserver Loop Errors
 
-```
-npm run build
-```
-
-To run the tests, run
-
-```
-npm run serve
-```
-
-and open your browser at `http://127.0.0.1:8081/tests`.
-
----
-
-License Apache-2.0
-
-[mdn]: https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Container_Queries
-[resizeobserver]: https://caniuse.com/resizeobserver
-[mutationobserver]: https://caniuse.com/mutationobserver
-[esbuild]: https://esbuild.github.io/
-[is selector]: https://caniuse.com/css-matches-pseudo
+When using the polyfill, you may observe reports of errors like `ResizeObserver loop completed with undelivered notifications` or `ResizeObserver loop limit exceeded`. These are expected, and may safely be ignored.

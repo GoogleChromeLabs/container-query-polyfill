@@ -1,58 +1,58 @@
 <!DOCTYPE html>
-<style></style>
+<style>
+  div {
+    outline: 1px solid red;
+    resize: both;
+    overflow: auto;
+    container-type: size;
+    height: 100px;
+  }
+
+  h1 {
+    font-size: 10px;
+  }
+
+  @container (min-width: 200px) {
+    h1 {
+      font-size: 30px;
+    }
+  }
+
+  @container (max-width: 200px) {
+    h1 {
+      font-size: 20px;
+    }
+  }
+</style>
 <script type="module">
-  import { doubleRaf, testSuite, assert } from "./test-utils.js";
-  import { transpileStyleSheet } from "/cqfill.js";
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assert} from './test-utils.js';
 
-  testSuite("Manual transpiling", async () => {
-    const parsed = transpileStyleSheet(`
-      div {
-        outline: 1px solid red;
-        resize: both;
-        overflow: auto;
-        container-type: size;
-        height: 100px;
-      }
-      h1 {
-        font-size: 10px;
-      }
-      @container (min-width: 200px) {
-        h1 {
-          font-size: 30px;
-        }
-      }
-      @container (max-width: 200px) {
-        h1 {
-          font-size: 20px;
-        }
-      }
-    `);
-    document.querySelector("style").innerHTML = parsed;
-
+  testSuite('Manual transpiling', async () => {
     await doubleRaf();
-    const div = document.createElement("div");
+    const div = document.createElement('div');
     document.body.append(div);
     await doubleRaf();
-    const h1 = document.createElement("h1");
-    h1.innerText = "lol";
+    const h1 = document.createElement('h1');
+    h1.innerText = 'lol';
     div.append(h1);
     await doubleRaf();
 
-    document.querySelector("div").style = "width: 150px";
+    document.querySelector('div').style = 'width: 150px';
     {
       await doubleRaf();
-      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
       assert(
-        fontSize === "20px",
+        fontSize === '20px',
         `Expected font-size to be 20px, got ${fontSize}`
       );
     }
-    document.querySelector("div").style = "width: 250px";
+    document.querySelector('div').style = 'width: 250px';
     {
       await doubleRaf();
-      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
       assert(
-        fontSize === "30px",
+        fontSize === '30px',
         `Expected font-size to be 30px, got ${fontSize}`
       );
     }

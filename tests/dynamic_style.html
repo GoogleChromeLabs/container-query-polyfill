@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <style></style>
 <script type="module">
-  import { doubleRaf, testSuite, assert } from "./test-utils.js";
-  import "/cqfill.js";
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assert} from './test-utils.js';
 
-  testSuite("Manual transpiling", async () => {
-    const style = document.createElement("style");
+  testSuite('Manual transpiling', async () => {
+    const style = document.createElement('style');
     style.innerHTML = `
       div {
         outline: 1px solid red;
@@ -31,28 +31,28 @@
     document.head.append(style);
 
     await doubleRaf();
-    const div = document.createElement("div");
+    const div = document.createElement('div');
     document.body.append(div);
     await doubleRaf();
-    const h1 = document.createElement("h1");
-    h1.innerText = "lol";
+    const h1 = document.createElement('h1');
+    h1.innerText = 'lol';
     div.append(h1);
 
-    document.querySelector("div").style = "width: 200px";
+    document.querySelector('div').style = 'width: 200px';
     {
       await doubleRaf();
-      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
       assert(
-        fontSize === "20px",
+        fontSize === '20px',
         `Expected font-size to be 20px, got ${fontSize}`
       );
     }
-    document.querySelector("div").style = "width: 300px";
+    document.querySelector('div').style = 'width: 300px';
     {
       await doubleRaf();
-      const { fontSize } = getComputedStyle(document.querySelector("div h1"));
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
       assert(
-        fontSize === "30px",
+        fontSize === '30px',
         `Expected font-size to be 30px, got ${fontSize}`
       );
     }

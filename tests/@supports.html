@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<script src="./../dist/src/cqfill.modern.js"></script>
+<style>
+  #a {
+    color: red;
+    container-type: size;
+  }
+
+  h1 {
+    font-size: 10px;
+  }
+
+  @supports not (container-type: size) {
+    #a {
+      visibility: hidden;
+    }
+  }
+</style>
+<div id="a">
+  <h1>Ohai</h1>
+</div>
+<script type="module">
+  import {doubleRaf, testSuite, assert} from './test-utils.js';
+
+  testSuite('Manual transpiling', async () => {
+    await doubleRaf();
+
+    const computed = getComputedStyle(document.querySelector('h1'));
+    assert(
+      computed.visibility === 'visible',
+      `Expected visibility to be visible, got ${computed.visibility}`
+    );
+  });
+</script>

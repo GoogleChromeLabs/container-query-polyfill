@@ -10,48 +10,48 @@
   <span></span>
 </div>
 <script type="module">
-  import { doubleRaf, testSuite, assert, nextEvent } from "./test-utils.js";
-  import "/cqfill.js";
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assert, nextEvent} from './test-utils.js';
 
-  testSuite("Manual transpiling", async () => {
-    const link = document.querySelector("link");
+  testSuite('Manual transpiling', async () => {
+    const link = document.querySelector('link');
     if (
       ![...document.styleSheets].some(
-        (stylesheet) => stylesheet.ownerNode === link
+        stylesheet => stylesheet.ownerNode === link
       )
     ) {
-      await nextEvent(link, "load");
+      await nextEvent(link, 'load');
       await doubleRaf();
     }
 
     document
-      .querySelectorAll("div")
-      .forEach((div) => (div.style = "width: 100px"));
+      .querySelectorAll('div')
+      .forEach(div => (div.style = 'width: 100px'));
     await doubleRaf();
     {
       await doubleRaf();
-      for (const selector of ["#noquotes", "#doublequotes", "#singlequotes"]) {
-        const { backgroundImage } = getComputedStyle(
+      for (const selector of ['#noquotes', '#doublequotes', '#singlequotes']) {
+        const {backgroundImage} = getComputedStyle(
           document.querySelector(`${selector} span`)
         );
         assert(
-          backgroundImage.includes("red.png"),
+          backgroundImage.includes('red.png'),
           `Expected red background image, got ${backgroundImage}`
         );
       }
     }
     document
-      .querySelectorAll("div")
-      .forEach((div) => (div.style = "width: 300px"));
+      .querySelectorAll('div')
+      .forEach(div => (div.style = 'width: 300px'));
     await doubleRaf();
     {
       await doubleRaf();
-      for (const selector of ["#noquotes", "#doublequotes", "#singlequotes"]) {
-        const { backgroundImage } = getComputedStyle(
+      for (const selector of ['#noquotes', '#doublequotes', '#singlequotes']) {
+        const {backgroundImage} = getComputedStyle(
           document.querySelector(`${selector} span`)
         );
         assert(
-          backgroundImage.includes("green.png"),
+          backgroundImage.includes('green.png'),
           `Expected green background image, got ${backgroundImage}`
         );
       }

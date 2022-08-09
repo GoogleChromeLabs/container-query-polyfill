@@ -1,45 +1,44 @@
 <!DOCTYPE html>
-<style></style>
+<style>
+  #a {
+    outline: 1px solid red;
+    height: 150px;
+    resize: both;
+    overflow: auto;
+    container-type: size;
+  }
+
+  h1 {
+    font-size: 10px;
+  }
+
+  @container ((min-width: 200px) and not (min-height: 200px)) {
+    h1 {
+      font-size: 30px;
+    }
+  }
+</style>
 <div id="a">
   <div id="b">
     <h1>H1</h1>
   </div>
 </div>
 <script type="module">
-  import { doubleRaf, testSuite, assert } from "./test-utils.js";
-  import { transpileStyleSheet } from "/cqfill.js";
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assert} from './test-utils.js';
 
-  testSuite("Manual transpiling", async () => {
-    const parsed = transpileStyleSheet(`
-      #a {
-        outline: 1px solid red;
-        height: 150px;
-        resize: both;
-        overflow: auto;
-        container-type: size;
-      }
-      h1 {
-        font-size: 10px;
-      }
-      @container (min-width: 200px) and not (min-height: 200px) {
-        h1 {
-          font-size: 30px;
-        }
-      }
-    `);
-    document.querySelector("style").innerHTML = parsed;
-
-    const a = document.querySelector("#a");
+  testSuite('Manual transpiling', async () => {
+    const a = document.querySelector('#a');
     const configs = [
-      { width: 150, height: 150, expectedPropValues: { fontSize: "10px" } },
-      { width: 150, height: 250, expectedPropValues: { fontSize: "10px" } },
-      { width: 250, height: 150, expectedPropValues: { fontSize: "30px" } },
-      { width: 250, height: 250, expectedPropValues: { fontSize: "10px" } },
+      {width: 150, height: 150, expectedPropValues: {fontSize: '10px'}},
+      {width: 150, height: 250, expectedPropValues: {fontSize: '10px'}},
+      {width: 250, height: 150, expectedPropValues: {fontSize: '30px'}},
+      {width: 250, height: 250, expectedPropValues: {fontSize: '10px'}},
     ];
-    for (const { width, height, expectedPropValues } of configs) {
+    for (const {width, height, expectedPropValues} of configs) {
       a.style = `width: ${width}px; height: ${height}px;`;
       await doubleRaf();
-      const computed = getComputedStyle(document.querySelector("h1"));
+      const computed = getComputedStyle(document.querySelector('h1'));
       for (const [prop, expectedValue] of Object.entries(expectedPropValues)) {
         assert(
           computed[prop] === expectedValue,

@@ -1,0 +1,45 @@
+name: Build & Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
+      BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
+      WPT_MANIFEST: ${{ github.workspace }}/wpt/MANIFEST.json
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '16'
+      - uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
+      - uses: actions/checkout@v3
+        with:
+          repository: devknoll/wpt
+          path: wpt
+          ref: x-polyfill-all-tests
+
+      - name: Build
+        run: |
+          npm install
+          npm run build:wpt
+
+      - name: Setup WPT
+        run: |
+          cd wpt
+          pip install virtualenv
+          ./wpt make-hosts-file | sudo tee -a /etc/hosts
+      - name: Run Tests
+        run: |
+          npm run serve &
+          ./wpt/wpt manifest
+          ./wpt/wpt serve --inject-script=${{ github.workspace }}/dist/container-query-polyfill.modern.js &
+          npm test

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<style>
+  div {
+    outline: 1px solid red;
+    resize: both;
+    overflow: auto;
+    container-type: size;
+    height: 100px;
+  }
+  * {
+    font-size: 10px;
+  }
+  @container (min-width: 200px) {
+    ::slotted(span) {
+    }
+
+    ::before {
+      font-size: 25px;
+    }
+
+    h1::before {
+      font-size: 30px;
+    }
+
+    h1 :not(h1)::before {
+      font-size: 35px;
+    }
+  }
+</style>
+<div style="width: 100px">
+  <h1><span>Ohai</span></h1>
+</div>
+<script type="module">
+  import '/../dist/src/cqfill.modern.js';
+  import {doubleRaf, testSuite, assert} from './test-utils.js';
+
+  testSuite('Manual transpiling', async () => {
+    {
+      await doubleRaf();
+      const {fontSize} = getComputedStyle(
+        document.querySelector('div'),
+        '::before'
+      );
+      assert(
+        fontSize === '10px',
+        `Expected font-size to be 10px, got ${fontSize}`
+      );
+    }
+    {
+      await doubleRaf();
+      const {fontSize} = getComputedStyle(document.querySelector('div'));
+      assert(
+        fontSize === '10px',
+        `Expected font-size to be 10px, got ${fontSize}`
+      );
+    }
+    {
+      await doubleRaf();
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
+      assert(
+        fontSize === '10px',
+        `Expected font-size to be 10px, got ${fontSize}`
+      );
+    }
+    {
+      await doubleRaf();
+      const {fontSize} = getComputedStyle(
+        document.querySelector('div h1'),
+        '::before'
+      );
+      assert(
+        fontSize === '10px',
+        `Expected font-size to be 10px, got ${fontSize}`
+      );
+    }
+    {
+      await doubleRaf();
+      const {fontSize} = getComputedStyle(
+        document.querySelector('div h1 span')
+      );
+      assert(
+        fontSize === '10px',
+        `Expected font-size to be 10px, got ${fontSize}`
+      );
+    }
+    {
+      await doubleRaf();
+      const {fontSize} = getComputedStyle(
+        document.querySelector('div h1 span'),
+        '::before'
+      );
+      assert(
+        fontSize === '10px',
+        `Expected font-size to be 10px, got ${fontSize}`
+      );
+    }
+    document.querySelector('div').style = 'width: 300px';
+    {
+      await doubleRaf();
+      const {fontSize} = getComputedStyle(document.querySelector('div h1'));
+      assert(
+        fontSize === '30px',
+        `Expected font-size to be 30px, got ${fontSize}`
+      );
+    }
+  });
+</script>

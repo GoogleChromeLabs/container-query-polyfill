@@ -1,5 +1,5 @@
 /**
- * Copyright 2021 Google Inc. All Rights Reserved.
+ * Copyright 2022 Google Inc. All Rights Reserved.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -11,657 +11,966 @@
  * limitations under the License.
  */
 
-const enum Comparator {
-  LESS_THAN,
-  LESS_OR_EQUAL,
-  GREATER_THAN,
-  GREATER_OR_EQUAL,
+import {
+  evaluateContainerCondition,
+  ContainerType,
+  TreeContext,
+  WritingAxis,
+} from './evaluate.js';
+import {
+  CUSTOM_PROPERTY_NAME,
+  CUSTOM_PROPERTY_TYPE,
+  CUSTOM_UNIT_VARIABLE_CQB,
+  CUSTOM_UNIT_VARIABLE_CQH,
+  CUSTOM_UNIT_VARIABLE_CQI,
+  CUSTOM_UNIT_VARIABLE_CQW,
+  DATA_ATTRIBUTE_CHILD,
+  DATA_ATTRIBUTE_SELF,
+  INTERNAL_KEYWORD_PREFIX,
+  PER_RUN_UID,
+} from './constants.js';
+import {ContainerQueryDescriptor, transpileStyleSheet} from './transform.js';
+import {isContainerStandaloneKeyword} from './parser.js';
+
+interface PhysicalSize {
+  width: number;
+  height: number;
 }
 
-interface SizeQuery {
-  type: ContainerConditionType.SizeQuery;
-  feature: string;
-  comparator: Comparator;
-  threshold: number;
+const enum QueryContainerFlags {
+  None = 0,
+
+  /**
+   * Whether the container's condition evaluated to true.
+   */
+  Condition = 1 << 0,
+
+  /**
+   * Whether the container's rules should be applied.
+   *
+   * Note: this is subtly different from `condition`, as it
+   * takes into account any parent containers and conditions too.
+   */
+  Container = 1 << 1,
 }
 
-interface ContainerConditionConjunction {
-  type: ContainerConditionType.ContainerConditionConjunction;
-  left: ContainerCondition;
-  right: ContainerCondition;
+const enum DisplayFlags {
+  // On if the `display` property is anything but `none`
+  Enabled = 1 << 0,
+
+  // On if the `display` property is valid for size containment.
+  // https://drafts.csswg.org/css-contain-2/#containment-size
+  EligibleForSizeContainment = 1 << 1,
 }
 
-interface ContainerConditionDisjunction {
-  type: ContainerConditionType.ContainerConditionDisjunction;
-  left: ContainerCondition;
-  right: ContainerCondition;
+interface LayoutState {
+  conditions: Map<string, QueryContainerFlags>;
+  context: TreeContext;
+  displayFlags: DisplayFlags;
+  isQueryContainer: boolean;
 }
 
-interface ContainerConditionNegation {
-  type: ContainerConditionType.ContainerConditionNegation;
-  right: ContainerCondition;
+type QueryDescriptorArray = Iterable<ContainerQueryDescriptor>;
+
+const INSTANCE_SYMBOL: unique symbol = Symbol('CQ_INSTANCE');
+const SUPPORTS_SMALL_VIEWPORT_UNITS = CSS.supports('width: 1svh');
+const VERTICAL_WRITING_MODES = new Set([
+  'vertical-lr',
+  'vertical-rl',
+  'sideways-rl',
+  'sideways-lr',
+  'tb',
+  'tb-lr',
+  'tb-rl',
+]);
+
+const WIDTH_BORDER_BOX_PROPERTIES: string[] = [
+  'padding-left',
+  'padding-right',
+  'border-left-width',
+  'border-right-width',
+];
+
+const HEIGHT_BORDER_BOX_PROPERTIES: string[] = [
+  'padding-top',
+  'padding-bottom',
+  'border-top-width',
+  'border-bottom-width',
+];
+
+/**
+ * For matching:
+ *
+ * display: [ table | ruby ]
+ * display: [ block | inline | ... ] [ table | ruby ]
+ * display: table-[ row | cell | ... ]
+ * display: ruby-[ base | text | ... ]
+ * display: inline-table
+ *
+ * https://drafts.csswg.org/css-display-3/#the-display-properties
+ */
+const TABLE_OR_RUBY_DISPLAY_TYPE = /(\w*(\s|-))?(table|ruby)(-\w*)?/;
+
+if (IS_WPT_BUILD) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).CQ_SYMBOL = INSTANCE_SYMBOL;
 }
 
-enum ContainerConditionType {
-  SizeQuery,
-  ContainerConditionConjunction,
-  ContainerConditionDisjunction,
-  ContainerConditionNegation,
+interface ViewportChangeContext {
+  viewportChanged(size: PhysicalSize): void;
 }
 
-type ContainerCondition =
-  | SizeQuery
-  | ContainerConditionConjunction
-  | ContainerConditionDisjunction
-  | ContainerConditionNegation;
-
-interface ContainerQueryDescriptor {
-  name?: string;
-  condition: ContainerCondition;
-  className: string;
-  rules: Rule[];
+interface StyleSheetContext {
+  registerStyleSheet(options: {
+    source: string;
+    url?: URL;
+    signal?: AbortSignal;
+  }): Promise<StyleSheetInstance>;
 }
 
-function uid(): string {
-  return Array.from({ length: 16 }, () =>
-    Math.floor(Math.random() * 256).toString(16)
-  ).join("");
+interface StyleSheetInstance {
+  source: string;
+  dispose(): void;
+  refresh(): void;
 }
 
-function translateToLogicalProp(feature: string): string {
-  switch (feature.toLowerCase()) {
-    case "inlinesize":
-      return "inlineSize";
-    case "blocksize":
-      return "blockSize";
-    case "width":
-      return "inlineSize";
-    case "height":
-      return "blockSize";
-    default:
-      throw Error(`Unknown feature name ${feature} in container query`);
+interface ParsedLayoutData {
+  width: number;
+  height: number;
+  writingAxis: WritingAxis;
+  fontSize: number;
+  displayFlags: DisplayFlags;
+}
+
+interface LayoutStateContext {
+  getParentState(): LayoutState;
+  getQueryDescriptors(): Iterable<ContainerQueryDescriptor>;
+}
+
+export function initializePolyfill() {
+  interface Instance {
+    depth: number;
+    state: LayoutStateManager;
+
+    connect(): void;
+    disconnect(): void;
+    resize(): void;
+    parentResize(): void;
+    mutate(): void;
   }
-}
 
-function isSizeQueryFulfilled(
-  condition: SizeQuery,
-  borderBox: ResizeObserverSize
-): boolean {
-  const value = borderBox[translateToLogicalProp(condition.feature)];
-  switch (condition.comparator) {
-    case Comparator.GREATER_OR_EQUAL:
-      return value >= condition.threshold;
-    case Comparator.GREATER_THAN:
-      return value > condition.threshold;
-    case Comparator.LESS_OR_EQUAL:
-      return value <= condition.threshold;
-    case Comparator.LESS_THAN:
-      return value < condition.threshold;
+  function getInstance(node: Node): Instance | null {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const controller = (node as any)[INSTANCE_SYMBOL];
+    return controller ? controller : null;
   }
-}
 
-function isQueryFullfilled_internal(
-  condition: ContainerCondition,
-  borderBox: ResizeObserverSize
-): boolean {
-  switch (condition.type) {
-    case ContainerConditionType.ContainerConditionConjunction:
-      return (
-        isQueryFullfilled_internal(condition.left, borderBox) &&
-        isQueryFullfilled_internal(condition.right, borderBox)
-      );
-    case ContainerConditionType.ContainerConditionDisjunction:
-      return (
-        isQueryFullfilled_internal(condition.left, borderBox) ||
-        isQueryFullfilled_internal(condition.right, borderBox)
-      );
-    case ContainerConditionType.ContainerConditionNegation:
-      return !isQueryFullfilled_internal(condition.right, borderBox);
-    case ContainerConditionType.SizeQuery:
-      return isSizeQueryFulfilled(condition, borderBox);
-    default:
-      throw Error("wtf?");
+  const documentElement = document.documentElement;
+  if (getInstance(documentElement)) {
+    return;
   }
-}
 
-function isQueryFullfilled(
-  condition: ContainerCondition,
-  entry: ResizeObserverEntry
-): boolean {
-  let borderBox;
-  if ("borderBoxSize" in entry) {
-    // At the time of writing, the array will always be length one in Chrome.
-    // In Firefox, it won’t be an array, but a single object.
-    borderBox = entry.borderBoxSize?.[0] ?? entry.borderBoxSize;
-  } else {
-    // Safari doesn’t have borderBoxSize at all, but only offers `contentRect`,
-    // so we have to do some maths ourselves.
-    const computed = getComputedStyle(entry.target);
-    borderBox = {
-      // FIXME: This will if you are not in tblr writing mode
-      blockSize: entry.contentRect.height,
-      inlineSize: entry.contentRect.width,
-    };
-    // Cut off the "px" suffix from the computed styles.
-    borderBox.blockSize +=
-      parseInt(computed.paddingBlockStart.slice(0, -2)) +
-      parseInt(computed.paddingBlockEnd.slice(0, -2));
-    borderBox.inlineSize +=
-      parseInt(computed.paddingInlineStart.slice(0, -2)) +
-      parseInt(computed.paddingInlineEnd.slice(0, -2));
-  }
-  return isQueryFullfilled_internal(condition, borderBox);
-}
+  let cachedQueryDescriptors: ContainerQueryDescriptor[] | null = null;
 
-function findParentContainer(el: Element, name?: string): Element | null {
-  while (el) {
-    el = el.parentElement;
-    if (!containerNames.has(el)) continue;
-    if (name) {
-      const containerName = containerNames.get(el)!;
-      if (!containerName.includes(name)) continue;
-    }
-    return el;
-  }
-  return null;
-}
+  const dummyElement = document.createElement(`cq-polyfill-${PER_RUN_UID}`);
+  const globalStyleElement = document.createElement('style');
+  const mutationObserver = new MutationObserver(mutations => {
+    for (const entry of mutations) {
+      cachedQueryDescriptors = null;
 
-const containerNames: WeakMap<Element, string[]> = new WeakMap();
-function registerContainer(el: Element, name: string) {
-  containerRO.observe(el);
-  if (!containerNames.has(el)) {
-    containerNames.set(el, []);
-  }
-  containerNames.get(el)!.push(name);
-}
-const queries: Array<ContainerQueryDescriptor> = [];
-function registerContainerQuery(cqd: ContainerQueryDescriptor) {
-  queries.push(cqd);
-}
-const containerRO = new ResizeObserver((entries) => {
-  const changedContainers: Map<Element, ResizeObserverEntry> = new Map(
-    entries.map((entry) => [entry.target, entry])
-  );
-  for (const query of queries) {
-    for (const { selector } of query.rules) {
-      const els = document.querySelectorAll(selector);
-      for (const el of els) {
-        const container = findParentContainer(el, query.name);
-        if (!container) continue;
-        if (!changedContainers.has(container)) continue;
-        const entry = changedContainers.get(container);
-        el.classList.toggle(
-          query.className,
-          isQueryFullfilled(query.condition, entry)
-        );
+      for (const node of entry.removedNodes) {
+        const instance = getInstance(node);
+        // Note: We'll recurse into the nodes during the disconnect.
+        instance?.disconnect();
       }
-    }
-  }
-});
 
-interface WatchedSelector {
-  selector: string;
-  name: string;
-}
-const watchedContainerSelectors: WatchedSelector[] = [];
-const containerMO = new MutationObserver((entries) => {
-  for (const entry of entries) {
-    for (const node of entry.removedNodes) {
-      if (!(node instanceof HTMLElement)) continue;
-      containerRO.unobserve(node);
-    }
-
-    for (const node of entry.addedNodes) {
-      if (!(node instanceof HTMLElement)) continue;
-      for (const watchedContainerSelector of watchedContainerSelectors) {
-        // Check if the node itself is a container, and if so, start watching it.
-        if (node.matches(watchedContainerSelector.selector)) {
-          registerContainer(node, watchedContainerSelector.name);
-        }
-        // If the node was added with children, the children will NOT get their own
-        // MO events, so we need to check the children manually.
-        for (const container of node.querySelectorAll(
-          watchedContainerSelector.selector
-        )) {
-          registerContainer(container, watchedContainerSelector.name);
-        }
+      if (
+        entry.type === 'attributes' &&
+        entry.attributeName &&
+        (entry.attributeName === DATA_ATTRIBUTE_SELF ||
+          entry.attributeName === DATA_ATTRIBUTE_CHILD ||
+          (entry.target instanceof Element &&
+            entry.target.getAttribute(entry.attributeName) === entry.oldValue))
+      ) {
+        continue;
       }
+
+      // Note: We'll recurse into any added nodes during the mutation.
+      const instance = getOrCreateInstance(entry.target);
+      instance.mutate();
     }
-  }
-});
-containerMO.observe(document.documentElement, {
-  childList: true,
-  subtree: true,
-});
-
-interface AdhocParser {
-  sheetSrc: string;
-  index: number;
-  name?: string;
-}
-
-// Loosely inspired by
-// https://drafts.csswg.org/css-syntax/#parser-diagrams
-export function transpileStyleSheet(sheetSrc: string, srcUrl?: string): string {
-  const p: AdhocParser = {
-    sheetSrc,
-    index: 0,
-    name: srcUrl,
-  };
-
-  while (p.index < p.sheetSrc.length) {
-    eatWhitespace(p);
-    if (p.index >= p.sheetSrc.length) break;
-    if (lookAhead("/*", p)) {
-      while (lookAhead("/*", p)) {
-        eatComment(p);
-        eatWhitespace(p);
-      }
-      continue;
-    }
-    if (lookAhead("@container", p)) {
-      const { query, startIndex, endIndex } = parseContainerQuery(p);
-      const replacement = stringifyContainerQuery(query);
-      replacePart(startIndex, endIndex, replacement, p);
-      registerContainerQuery(query);
-    } else {
-      const rule = parseQualifiedRule(p);
-      if (!rule) continue;
-      handleContainerProps(rule, p);
-    }
-  }
-
-  // If this sheet has no srcURL (like from a <style> tag), we are
-  // done. Otherwise, we have to find `url()` functions and resolve
-  // relative and path-absolute URLs to absolute URLs.
-  if (!srcUrl) {
-    return p.sheetSrc;
-  }
-
-  p.sheetSrc = p.sheetSrc.replace(
-    /url\(["']*([^)"']+)["']*\)/g,
-    (match, url) => {
-      return `url(${new URL(url, srcUrl)})`;
-    }
-  );
-  return p.sheetSrc;
-}
-
-function handleContainerProps(rule: Rule, p) {
-  const hasLongHand = rule.block.contents.includes("container-");
-  const hasShortHand = rule.block.contents.includes("container:");
-  if (!hasLongHand && !hasShortHand) return;
-  let containerName, containerType;
-  if (hasLongHand) {
-    containerName = /container-name\s*:([^;}]+)/
-      .exec(rule.block.contents)?.[1]
-      .trim();
-    rule.block.contents = rule.block.contents.replace(
-      "container-type",
-      "contain"
-    );
-  }
-  if (hasShortHand) {
-    const containerShorthand = /container\s*:([^;}]+)/.exec(
-      rule.block.contents
-    )?.[1];
-    [containerType, containerName] = containerShorthand
-      .split("/")
-      .map((v) => v.trim());
-    rule.block.contents = rule.block.contents.replace(
-      /container: ([^;}]+)/,
-      `contain: ${containerType};`
-    );
-  }
-  if (!containerName) {
-    containerName = uid();
-  }
-  replacePart(
-    rule.block.startIndex,
-    rule.block.endIndex,
-    rule.block.contents,
-    p
-  );
-  watchedContainerSelectors.push({
-    name: containerName,
-    selector: rule.selector,
   });
-  for (const el of document.querySelectorAll(rule.selector)) {
-    registerContainer(el, containerName);
-  }
-}
+  mutationObserver.observe(documentElement, {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeOldValue: true,
+  });
 
-function replacePart(
-  start: number,
-  end: number,
-  replacement: string,
-  p: AdhocParser
-) {
-  p.sheetSrc = p.sheetSrc.slice(0, start) + replacement + p.sheetSrc.slice(end);
-  // If we are pointing past the end of the affected section, we need to
-  // recalculate the string pointer. Pointing to something inside the section
-  // that’s being replaced is undefined behavior. Sue me.
-  if (p.index >= end) {
-    const delta = p.index - end;
-    p.index = start + replacement.length + delta;
-  }
-}
-
-function eatComment(p: AdhocParser) {
-  assertString(p, "/*");
-  eatUntil("*/", p);
-  assertString(p, "*/");
-}
-
-function advance(p: AdhocParser) {
-  p.index++;
-  if (p.index > p.sheetSrc.length) {
-    throw parseError(p, "Advanced beyond the end");
-  }
-}
-
-function eatUntil(s: string, p: AdhocParser): string {
-  const startIndex = p.index;
-  while (!lookAhead(s, p)) {
-    advance(p);
-  }
-  return p.sheetSrc.slice(startIndex, p.index);
-}
-
-function lookAhead(s: string, p: AdhocParser): boolean {
-  return p.sheetSrc.substr(p.index, s.length) == s;
-}
-
-interface Rule {
-  selector: string;
-  block: Block;
-  startIndex: number;
-  endIndex: number;
-}
-
-interface Block {
-  contents: string;
-  startIndex: number;
-  endIndex: number;
-}
-
-function parseSelector(p: AdhocParser): string | undefined {
-  let startIndex = p.index;
-  eatUntil("{", p);
-  if (startIndex === p.index) {
-    throw Error("Empty selector");
-  }
-  return p.sheetSrc.slice(startIndex, p.index);
-}
-
-function parseQualifiedRule(p: AdhocParser): Rule | undefined {
-  const startIndex = p.index;
-  const selector = parseSelector(p);
-  if (!selector) return;
-  const block = eatBlock(p);
-  const endIndex = p.index;
-  return {
-    selector,
-    block,
-    startIndex,
-    endIndex,
-  };
-}
-
-function fileName(p: AdhocParser): string {
-  if (p.name) {
-    return p.name;
-  }
-  return "<anonymous file>";
-}
-
-function parseError(p: AdhocParser, msg: string): Error {
-  return Error(`(${fileName(p)}): ${msg}`);
-}
-
-function assertString(p: AdhocParser, s: string) {
-  if (p.sheetSrc.substr(p.index, s.length) != s) {
-    throw parseError(p, `Did not find expected sequence ${s}`);
-  }
-  p.index += s.length;
-}
-
-const whitespaceMatcher = /\s*/g;
-function eatWhitespace(p: AdhocParser) {
-  // Start matching at the current position in the sheet src
-  whitespaceMatcher.lastIndex = p.index;
-  const match = whitespaceMatcher.exec(p.sheetSrc);
-  if (match) {
-    p.index += match[0].length;
-  }
-}
-
-function peek(p: AdhocParser): string {
-  return p.sheetSrc[p.index];
-}
-
-const identMatcher = /[\w\\\@_-]+/g;
-function parseIdentifier(p: AdhocParser): string {
-  identMatcher.lastIndex = p.index;
-  const match = identMatcher.exec(p.sheetSrc);
-  if (!match) {
-    throw parseError(p, "Expected an identifier");
-  }
-  p.index += match[0].length;
-  return match[0];
-}
-
-function parseMeasurementName(p: AdhocParser): string {
-  return parseIdentifier(p).toLowerCase();
-}
-
-const numberMatcher = /[0-9.]*/g;
-function parseThreshold(p: AdhocParser): number {
-  numberMatcher.lastIndex = p.index;
-  const match = numberMatcher.exec(p.sheetSrc);
-  if (!match) {
-    throw parseError(p, "Expected a number");
-  }
-  p.index += match[0].length;
-  // TODO: Support other units?
-  assertString(p, "px");
-  const value = parseFloat(match[0]);
-  if (Number.isNaN(value)) {
-    throw parseError(p, `${match[0]} is not a valid number`);
-  }
-  return value;
-}
-
-function eatBlock(p: AdhocParser): Block {
-  const startIndex = p.index;
-  assertString(p, "{");
-  let level = 1;
-  while (level != 0) {
-    if (p.sheetSrc[p.index] === "{") {
-      level++;
-    } else if (p.sheetSrc[p.index] === "}") {
-      level--;
+  const pendingMutations: Array<() => void> = [];
+  let shouldQueueMutations = false;
+  function queueMutation(callback: () => void) {
+    if (shouldQueueMutations) {
+      pendingMutations.push(callback);
+    } else {
+      callback();
     }
-    advance(p);
   }
-  const endIndex = p.index;
-  const contents = p.sheetSrc.slice(startIndex, endIndex);
-  return { startIndex, endIndex, contents };
-}
 
-interface ParseResult {
-  query: ContainerQueryDescriptor;
-  startIndex: number;
-  endIndex: number;
-}
+  const pendingResize: Set<Node> = new Set();
+  const resizeObserver = new ResizeObserver(entries => {
+    try {
+      shouldQueueMutations = true;
+      entries
+        .map(entry => {
+          const node = entry.target;
+          pendingResize.add(node);
+          return getOrCreateInstance(node);
+        })
+        .sort((a, b) => a.depth - b.depth)
+        .forEach(instance => instance.resize());
+    } finally {
+      pendingResize.clear();
+      shouldQueueMutations = false;
+      pendingMutations.forEach(callback => callback());
+      pendingMutations.length = 0;
+    }
+  });
 
-function parseLegacySizeQuery(p: AdhocParser): SizeQuery {
-  const measurement = parseMeasurementName(p);
-  eatWhitespace(p);
-  assertString(p, ":");
-  eatWhitespace(p);
-  const threshold = parseThreshold(p);
-  eatWhitespace(p);
-  assertString(p, ")");
-  eatWhitespace(p);
-  let comparator;
-  if (measurement.startsWith("min-")) {
-    comparator = Comparator.GREATER_OR_EQUAL;
-  } else if (measurement.startsWith("max-")) {
-    comparator = Comparator.LESS_OR_EQUAL;
-  } else {
-    throw Error(`Unknown legacy container query ${measurement}`);
+  function forceUpdate(el: Element) {
+    resizeObserver.unobserve(el);
+    resizeObserver.observe(el);
   }
-  return {
-    type: ContainerConditionType.SizeQuery,
-    feature: translateToLogicalProp(measurement.slice(4)),
-    comparator,
-    threshold,
-  };
-}
 
-function parseComparator(p: AdhocParser): Comparator {
-  if (lookAhead(">=", p)) {
-    assertString(p, ">=");
-    return Comparator.GREATER_OR_EQUAL;
-  }
-  if (lookAhead(">", p)) {
-    assertString(p, ">");
-    return Comparator.GREATER_THAN;
-  }
-  if (lookAhead("<=", p)) {
-    assertString(p, "<=");
-    return Comparator.LESS_OR_EQUAL;
-  }
-  if (lookAhead("<", p)) {
-    assertString(p, "<");
-    return Comparator.LESS_THAN;
-  }
-  throw Error(`Unknown comparator`);
-}
+  const rootController = new NodeController(documentElement);
+  const queryDescriptorMap: Map<Node, QueryDescriptorArray> = new Map();
+  async function registerStyleSheet(
+    node: Node,
+    {
+      source,
+      url,
+      signal,
+    }: {
+      source: string;
+      url?: URL;
+      signal?: AbortSignal;
+    }
+  ) {
+    const result = transpileStyleSheet(
+      source,
+      url ? url.toString() : undefined
+    );
+    let dispose = () => {
+      /* noop */
+    };
 
-function parseSizeQuery(p: AdhocParser): ContainerCondition {
-  assertString(p, "(");
-  if (lookAhead("(", p)) {
-    const cond = parseContainerCondition(p);
-    assertString(p, ")");
-    return cond;
-  }
-  eatWhitespace(p);
-  if (lookAhead("min-", p) || lookAhead("max-", p)) {
-    return parseLegacySizeQuery(p);
-  }
-  const feature = parseIdentifier(p).toLowerCase();
-  eatWhitespace(p);
-  const comparator = parseComparator(p);
-  eatWhitespace(p);
-  const threshold = parseThreshold(p);
-  eatWhitespace(p);
-  assertString(p, ")");
-  eatWhitespace(p);
-  return {
-    type: ContainerConditionType.SizeQuery,
-    feature,
-    comparator,
-    threshold,
-  };
-}
+    if (!signal?.aborted) {
+      queryDescriptorMap.set(node, result.descriptors);
+      dispose = () => queryDescriptorMap.delete(node);
+      cachedQueryDescriptors = null;
+    }
 
-function parseSizeOrStyleQuery(p: AdhocParser): ContainerCondition {
-  eatWhitespace(p);
-  if (lookAhead("(", p)) return parseSizeQuery(p);
-  else if (lookAhead("size", p)) {
-    assertString(p, "size");
-    eatWhitespace(p);
-    return parseSizeQuery(p);
-  } else if (lookAhead("style", p)) {
-    throw Error(`Style query not implement yet`);
-  } else {
-    throw Error(`Unknown container query type`);
-  }
-}
-
-function parseNegatedContainerCondition(p: AdhocParser): ContainerCondition {
-  if (lookAhead("not", p)) {
-    assertString(p, "not");
-    eatWhitespace(p);
     return {
-      type: ContainerConditionType.ContainerConditionNegation,
-      right: parseSizeOrStyleQuery(p),
+      source: result.source,
+      dispose,
+      refresh() {
+        forceUpdate(documentElement);
+      },
     };
   }
-  return parseSizeOrStyleQuery(p);
-}
-function parseContainerCondition(p: AdhocParser): ContainerCondition {
-  let left = parseNegatedContainerCondition(p);
 
-  while (true) {
-    if (lookAhead("and", p)) {
-      assertString(p, "and");
-      eatWhitespace(p);
-      const right = parseNegatedContainerCondition(p);
-      eatWhitespace(p);
-      left = {
-        type: ContainerConditionType.ContainerConditionConjunction,
-        left,
-        right,
-      };
-    } else if (lookAhead("or", p)) {
-      assertString(p, "or");
-      eatWhitespace(p);
-      const right = parseNegatedContainerCondition(p);
-      eatWhitespace(p);
-      left = {
-        type: ContainerConditionType.ContainerConditionDisjunction,
-        left,
-        right,
-      };
-    } else {
-      break;
+  function getQueryDescriptors() {
+    if (!cachedQueryDescriptors) {
+      cachedQueryDescriptors = [];
+
+      for (const styleSheet of document.styleSheets) {
+        const ownerNode = styleSheet.ownerNode;
+        if (ownerNode instanceof Element) {
+          const queryDescriptors = queryDescriptorMap.get(ownerNode);
+          if (queryDescriptors) {
+            cachedQueryDescriptors.push(...queryDescriptors);
+          }
+        }
+      }
+    }
+    return cachedQueryDescriptors;
+  }
+
+  const fallbackContainerUnits: {cqw: number | null; cqh: number | null} = {
+    cqw: null,
+    cqh: null,
+  };
+  function viewportChanged({width, height}: PhysicalSize) {
+    fallbackContainerUnits.cqw = width;
+    fallbackContainerUnits.cqh = height;
+  }
+
+  function updateAttributes(
+    node: Node,
+    state: LayoutStateManager | null,
+    attribute: string
+  ) {
+    if (node instanceof Element && state) {
+      const attributes = state.computeAttributesForElement(node);
+      queueMutation(() => {
+        if (attributes.length > 0) {
+          node.setAttribute(attribute, attributes);
+        } else {
+          node.removeAttribute(attribute);
+        }
+      });
     }
   }
-  return left;
+
+  function getOrCreateInstance(node: Node): Instance {
+    let instance = getInstance(node);
+    if (!instance) {
+      let innerController: NodeController<Node>;
+      let parentState: LayoutStateManager | null = null;
+      let state: LayoutStateManager;
+      let depth = 0;
+
+      if (node === documentElement) {
+        innerController = rootController;
+        state = new LayoutStateManager(documentElement, {
+          getParentState() {
+            const context = state.getLayoutData();
+            return {
+              conditions: new Map(),
+              context: {
+                ...fallbackContainerUnits,
+                fontSize: context.fontSize,
+                rootFontSize: context.fontSize,
+                writingAxis: context.writingAxis,
+              },
+              displayFlags: context.displayFlags,
+              isQueryContainer: false,
+            };
+          },
+          getQueryDescriptors,
+        });
+      } else {
+        const parentNode = node.parentNode;
+        const parentController = parentNode ? getInstance(parentNode) : null;
+
+        if (!parentController) {
+          throw new Error('Expected node to have parent');
+        }
+
+        parentState = parentController.state;
+        state =
+          node instanceof Element
+            ? new LayoutStateManager(node, {
+                getParentState() {
+                  return parentController.state.get();
+                },
+                getQueryDescriptors,
+              })
+            : parentState;
+        depth = parentController.depth + 1;
+
+        if (node === dummyElement) {
+          innerController = new DummyElementController(dummyElement, {
+            viewportChanged,
+          });
+        } else if (node === globalStyleElement) {
+          innerController = new GlobalStyleElementController(
+            globalStyleElement
+          );
+        } else if (node instanceof HTMLLinkElement) {
+          innerController = new LinkElementController(node, {
+            registerStyleSheet: options =>
+              registerStyleSheet(node, {
+                ...options,
+              }),
+          });
+        } else if (node instanceof HTMLStyleElement) {
+          innerController = new StyleElementController(node, {
+            registerStyleSheet: options =>
+              registerStyleSheet(node, {
+                ...options,
+              }),
+          });
+        } else {
+          innerController = new NodeController(node);
+        }
+      }
+
+      const scheduleUpdate =
+        node instanceof Element
+          ? () => forceUpdate(node)
+          : () => {
+              /* NOOP */
+            };
+      const inlineStyles =
+        node instanceof HTMLElement || node instanceof SVGElement
+          ? node.style
+          : null;
+
+      instance = {
+        depth,
+        state,
+
+        connect() {
+          if (node instanceof Element) {
+            resizeObserver.observe(node);
+          }
+          for (const child of node.childNodes) {
+            // Ensure all children are created and connected first.
+            getOrCreateInstance(child);
+          }
+          innerController.connected();
+          scheduleUpdate();
+        },
+
+        disconnect() {
+          if (node instanceof Element) {
+            resizeObserver.unobserve(node);
+            node.removeAttribute(DATA_ATTRIBUTE_SELF);
+            node.removeAttribute(DATA_ATTRIBUTE_CHILD);
+          }
+          if (inlineStyles) {
+            inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQI);
+            inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQB);
+            inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQW);
+            inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQH);
+          }
+          for (const child of node.childNodes) {
+            const instance = getInstance(child);
+            instance?.disconnect();
+          }
+          innerController.disconnected();
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          delete (node as any)[INSTANCE_SYMBOL];
+        },
+
+        resize() {
+          state.invalidate();
+          updateAttributes(node, state, DATA_ATTRIBUTE_SELF);
+
+          if (inlineStyles) {
+            const currentState = state.get();
+            const context = currentState.context;
+            const writingAxis = context.writingAxis;
+
+            queueMutation(() => {
+              if (
+                !parentState ||
+                writingAxis !== parentState.get().context.writingAxis ||
+                currentState.isQueryContainer
+              ) {
+                inlineStyles.setProperty(
+                  CUSTOM_UNIT_VARIABLE_CQI,
+                  `var(${
+                    writingAxis === WritingAxis.Horizontal
+                      ? CUSTOM_UNIT_VARIABLE_CQW
+                      : CUSTOM_UNIT_VARIABLE_CQH
+                  })`
+                );
+                inlineStyles.setProperty(
+                  CUSTOM_UNIT_VARIABLE_CQB,
+                  `var(${
+                    writingAxis === WritingAxis.Vertical
+                      ? CUSTOM_UNIT_VARIABLE_CQW
+                      : CUSTOM_UNIT_VARIABLE_CQH
+                  })`
+                );
+              } else {
+                inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQI);
+                inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQB);
+              }
+
+              if (!parentState || currentState.isQueryContainer) {
+                if (context.cqw) {
+                  inlineStyles.setProperty(
+                    CUSTOM_UNIT_VARIABLE_CQW,
+                    context.cqw + 'px'
+                  );
+                }
+                if (context.cqh) {
+                  inlineStyles.setProperty(
+                    CUSTOM_UNIT_VARIABLE_CQH,
+                    context.cqh + 'px'
+                  );
+                }
+              } else {
+                inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQW);
+                inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQH);
+              }
+            });
+          }
+
+          innerController.resized(state);
+          for (const child of node.childNodes) {
+            const instance = getOrCreateInstance(child);
+            instance.parentResize();
+          }
+        },
+
+        parentResize() {
+          state.invalidate();
+          updateAttributes(node, parentState, DATA_ATTRIBUTE_CHILD);
+          scheduleUpdate();
+
+          if (!pendingResize.has(node)) {
+            for (const child of node.childNodes) {
+              const instance = getOrCreateInstance(child);
+              instance.parentResize();
+            }
+          }
+        },
+
+        mutate() {
+          state.invalidate();
+          scheduleUpdate();
+
+          for (const child of node.childNodes) {
+            getOrCreateInstance(child);
+          }
+        },
+      };
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (node as any)[INSTANCE_SYMBOL] = instance;
+      instance.connect();
+    }
+    return instance;
+  }
+
+  documentElement.prepend(globalStyleElement, dummyElement);
+  getOrCreateInstance(documentElement);
 }
 
-function parseContainerQuery(p: AdhocParser): ParseResult {
-  const startIndex = p.index;
-  assertString(p, "@container");
-  eatWhitespace(p);
-  let name: string = "";
-  if (peek(p) !== "(" && !lookAhead("size", p) && !lookAhead("style", p)) {
-    name = parseIdentifier(p);
-    eatWhitespace(p);
+class NodeController<T extends Node> {
+  node: T;
+
+  constructor(node: T) {
+    this.node = node;
   }
-  const condition = parseContainerCondition(p);
-  eatWhitespace(p);
-  assertString(p, "{");
-  eatWhitespace(p);
-  const rules = [];
-  while (peek(p) !== "}") {
-    rules.push(parseQualifiedRule(p));
-    eatWhitespace(p);
+
+  connected() {
+    // Handler implemented by subclasses
   }
-  assertString(p, "}");
-  const endIndex = p.index;
-  eatWhitespace(p);
-  const className = `cq_${uid()}`;
+
+  disconnected() {
+    // Handler implemented by subclasses
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  resized(layoutState: LayoutStateManager) {
+    // Handler implemented by subclasses
+  }
+}
+
+class LinkElementController extends NodeController<HTMLLinkElement> {
+  context: StyleSheetContext;
+  controller: AbortController | null;
+  styleSheet: StyleSheetInstance | null;
+
+  constructor(node: HTMLLinkElement, context: StyleSheetContext) {
+    super(node);
+    this.context = context;
+    this.controller = null;
+    this.styleSheet = null;
+  }
+
+  connected(): void {
+    const node = this.node;
+    if (node.rel === 'stylesheet') {
+      const url = new URL(node.href, document.baseURI);
+      if (url.origin === location.origin) {
+        this.controller = tryAbortableFunction(async signal => {
+          const response = await fetch(url.toString(), {signal});
+          const source = await response.text();
+
+          const styleSheet = (this.styleSheet =
+            await this.context.registerStyleSheet({source, url, signal}));
+          const blob = new Blob([styleSheet.source], {
+            type: 'text/css',
+          });
+
+          /**
+           * Even though it's a data URL, it may take several frames
+           * before the stylesheet is loaded. Additionally, the `onload`
+           * event isn't triggered on elements that have already loaded.
+           *
+           * Therefore, we use a dummy image to detect the right time
+           * to refresh.
+           */
+          const img = new Image();
+          img.onload = img.onerror = styleSheet.refresh;
+          img.src = node.href = URL.createObjectURL(blob);
+        });
+      }
+    }
+  }
+
+  disconnected(): void {
+    this.controller?.abort();
+    this.controller = null;
+
+    this.styleSheet?.dispose();
+    this.styleSheet = null;
+  }
+}
+
+class StyleElementController extends NodeController<HTMLStyleElement> {
+  context: StyleSheetContext;
+  controller: AbortController | null;
+  styleSheet: StyleSheetInstance | null;
+
+  constructor(node: HTMLStyleElement, context: StyleSheetContext) {
+    super(node);
+    this.context = context;
+    this.controller = null;
+    this.styleSheet = null;
+  }
+
+  connected(): void {
+    this.controller = tryAbortableFunction(async signal => {
+      const node = this.node;
+      const styleSheet = (this.styleSheet =
+        await this.context.registerStyleSheet({
+          source: node.innerHTML,
+          signal,
+        }));
+      node.innerHTML = styleSheet.source;
+      styleSheet.refresh();
+    });
+  }
+
+  disconnected(): void {
+    this.controller?.abort();
+    this.controller = null;
+
+    this.styleSheet?.dispose();
+    this.styleSheet = null;
+  }
+}
+
+class GlobalStyleElementController extends NodeController<HTMLStyleElement> {
+  connected(): void {
+    this.node.innerHTML = `* { ${CUSTOM_PROPERTY_TYPE}: cq-normal; ${CUSTOM_PROPERTY_NAME}: cq-none; }`;
+  }
+}
+
+class DummyElementController extends NodeController<HTMLElement> {
+  context: ViewportChangeContext;
+
+  constructor(node: HTMLElement, context: ViewportChangeContext) {
+    super(node);
+    this.context = context;
+  }
+
+  connected(): void {
+    this.node.style.cssText =
+      'position: fixed; top: 0; left: 0; visibility: hidden; ' +
+      (SUPPORTS_SMALL_VIEWPORT_UNITS
+        ? 'width: 1svw; height: 1svh;'
+        : 'width: 1%; height: 1%;');
+  }
+
+  resized(layoutState: LayoutStateManager): void {
+    const data = layoutState.getLayoutData();
+    this.context.viewportChanged({
+      width: data.width,
+      height: data.height,
+    });
+  }
+}
+
+class LayoutStateManager {
+  styles: CSSStyleDeclaration;
+  cachedState: LayoutState | null;
+  cachedLayoutData: ParsedLayoutData | null;
+  context: LayoutStateContext;
+
+  constructor(element: Element, context: LayoutStateContext) {
+    this.styles = window.getComputedStyle(element);
+    this.cachedState = null;
+    this.cachedLayoutData = null;
+    this.context = context;
+  }
+
+  invalidate(): void {
+    this.cachedState = null;
+    this.cachedLayoutData = null;
+  }
+
+  computeAttributesForElement(el: Element): string {
+    const conditions = this.get().conditions;
+    let attributes = '';
+
+    for (const query of this.context.getQueryDescriptors()) {
+      if (query.selector != null) {
+        const result = conditions.get(query.uid);
+        if (
+          result != null &&
+          (result & QueryContainerFlags.Container) ===
+            QueryContainerFlags.Container &&
+          el.matches(query.selector)
+        ) {
+          attributes += query.uid + ' ';
+        }
+      }
+    }
+
+    return attributes;
+  }
+
+  getLayoutData(): ParsedLayoutData {
+    let data = this.cachedLayoutData;
+    if (!data) {
+      const styles = this.styles;
+      const isBorderBox =
+        styles.getPropertyValue('box-sizing') === 'border-box';
+
+      const getDimension = (property: string) =>
+        parseFloat(styles.getPropertyValue(property));
+      const sumProperties = (properties: string[]) =>
+        properties.reduce(
+          (current, property) => current + getDimension(property),
+          0
+        );
+
+      this.cachedLayoutData = data = {
+        writingAxis: computeWritingAxis(
+          styles.getPropertyValue('writing-mode')
+        ),
+        fontSize: parseFloat(styles.getPropertyValue('font-size')),
+        width:
+          getDimension('width') -
+          (isBorderBox ? sumProperties(WIDTH_BORDER_BOX_PROPERTIES) : 0),
+        height:
+          getDimension('height') -
+          (isBorderBox ? sumProperties(HEIGHT_BORDER_BOX_PROPERTIES) : 0),
+        displayFlags: computeDisplayFlags(
+          styles.getPropertyValue('display').trim()
+        ),
+      };
+    }
+    return data;
+  }
+
+  get(): LayoutState {
+    let state = this.cachedState;
+    if (!state) {
+      const {context: layoutContext, styles} = this;
+      const data = this.getLayoutData();
+      const parentState = layoutContext.getParentState();
+      const {context: parentContext, conditions: parentConditions} =
+        parentState;
+
+      let displayFlags = data.displayFlags;
+      if ((parentState.displayFlags & DisplayFlags.Enabled) === 0) {
+        displayFlags = 0;
+      }
+
+      let conditions = parentConditions;
+      let isQueryContainer = false;
+
+      const context: TreeContext = {
+        ...parentContext,
+        fontSize: data.fontSize,
+        writingAxis: data.writingAxis,
+      };
+      const containerType = computeContainerType(
+        styles.getPropertyValue(CUSTOM_PROPERTY_TYPE).trim()
+      );
+
+      if (containerType > 0) {
+        conditions = new Map();
+        isQueryContainer = true;
+
+        const isValidContainer =
+          (displayFlags & DisplayFlags.EligibleForSizeContainment) ===
+          DisplayFlags.EligibleForSizeContainment;
+
+        if (isValidContainer) {
+          const sizeFeatures = computeSizeFeatures(containerType, data);
+          const queryContext = {
+            sizeFeatures,
+            treeContext: context,
+          };
+          const containerNames = computeContainerNames(
+            styles.getPropertyValue(CUSTOM_PROPERTY_NAME)
+          );
+
+          const computeQueryCondition = (query: ContainerQueryDescriptor) => {
+            const {rule} = query;
+            const name = rule.name;
+            const result =
+              name == null || containerNames.has(name)
+                ? evaluateContainerCondition(rule, queryContext)
+                : null;
+
+            if (result == null) {
+              const condition = parentConditions.get(query.uid) ?? 0;
+              return (
+                (condition && QueryContainerFlags.Condition) ===
+                QueryContainerFlags.Condition
+              );
+            }
+
+            return result === true;
+          };
+
+          const computeQueryState = (
+            conditions: Map<string, QueryContainerFlags>,
+            query: ContainerQueryDescriptor
+          ): QueryContainerFlags => {
+            let state = conditions.get(query.uid);
+            if (state == null) {
+              const condition = computeQueryCondition(query);
+              const container =
+                condition === true &&
+                (query.parent == null ||
+                  (computeQueryState(conditions, query.parent) &
+                    QueryContainerFlags.Condition) ===
+                    QueryContainerFlags.Condition);
+
+              state =
+                (condition ? QueryContainerFlags.Condition : 0) |
+                (container ? QueryContainerFlags.Container : 0);
+              conditions.set(query.uid, state);
+            }
+
+            return state;
+          };
+
+          for (const query of layoutContext.getQueryDescriptors()) {
+            computeQueryState(conditions, query);
+          }
+
+          context.cqw =
+            sizeFeatures.width != null
+              ? sizeFeatures.width / 100
+              : parentContext.cqw;
+          context.cqh =
+            sizeFeatures.height != null
+              ? sizeFeatures.height / 100
+              : parentContext.cqh;
+        }
+      }
+      this.cachedState = state = {
+        conditions,
+        context,
+        displayFlags,
+        isQueryContainer,
+      };
+    }
+    return state;
+  }
+}
+
+function tryAbortableFunction(fn: (signal: AbortSignal) => Promise<void>) {
+  const controller = new AbortController();
+  fn(controller.signal).catch(err => {
+    if (!(err instanceof DOMException && err.message === 'AbortError')) {
+      throw err;
+    }
+  });
+
+  return controller;
+}
+
+function computeSizeFeatures(type: ContainerType, data: ParsedLayoutData) {
+  type Axis = {value?: number};
+  const horizontalAxis: Axis = {
+    value: data.width,
+  };
+  const verticalAxis: Axis = {
+    value: data.height,
+  };
+
+  let inlineAxis = horizontalAxis;
+  let blockAxis = verticalAxis;
+
+  if (data.writingAxis === WritingAxis.Vertical) {
+    const tmp = inlineAxis;
+    inlineAxis = blockAxis;
+    blockAxis = tmp;
+  }
+
+  if ((type & ContainerType.BlockSize) !== ContainerType.BlockSize) {
+    blockAxis.value = undefined;
+  }
+
   return {
-    query: {
-      condition,
-      className,
-      name,
-      rules,
-    },
-    startIndex,
-    endIndex,
+    width: horizontalAxis.value,
+    height: verticalAxis.value,
+    inlineSize: inlineAxis.value,
+    blockSize: blockAxis.value,
   };
 }
 
-function stringifyContainerQuery(query: ContainerQueryDescriptor): string {
-  return query.rules
-    .map(
-      (rule) =>
-        `:is(${rule.selector}).${query.className} ${rule.block.contents}`
-    )
-    .join("\n");
+function computeContainerType(containerType: string): ContainerType {
+  let type = ContainerType.None;
+  if (containerType.length === 0) {
+    return type;
+  }
+
+  if (containerType.startsWith(INTERNAL_KEYWORD_PREFIX)) {
+    containerType = containerType.substring(INTERNAL_KEYWORD_PREFIX.length);
+    if (
+      containerType === 'normal' ||
+      isContainerStandaloneKeyword(containerType)
+    ) {
+      return type;
+    }
+  }
+
+  const parts = containerType.split(' ');
+  for (const part of parts) {
+    switch (part) {
+      case 'size':
+        type = type | (ContainerType.InlineSize | ContainerType.BlockSize);
+        break;
+
+      case 'inline-size':
+        type = type | ContainerType.InlineSize;
+        break;
+
+      default:
+        return ContainerType.None;
+    }
+  }
+  return type;
+}
+
+function computeDisplayFlags(displayType: string): DisplayFlags {
+  let flags = 0;
+  if (displayType !== 'none') {
+    flags |= DisplayFlags.Enabled;
+
+    if (
+      displayType !== 'contents' &&
+      displayType !== 'inline' &&
+      !TABLE_OR_RUBY_DISPLAY_TYPE.test(displayType)
+    ) {
+      flags |= DisplayFlags.EligibleForSizeContainment;
+    }
+  }
+
+  return flags;
+}
+
+function computeContainerNames(containerNames: string) {
+  if (containerNames.startsWith(INTERNAL_KEYWORD_PREFIX)) {
+    containerNames = containerNames.substring(INTERNAL_KEYWORD_PREFIX.length);
+    if (
+      containerNames === 'none' ||
+      isContainerStandaloneKeyword(containerNames)
+    ) {
+      return new Set([]);
+    }
+  }
+
+  return new Set(containerNames.length === 0 ? [] : containerNames.split(' '));
+}
+
+function computeWritingAxis(writingMode: string) {
+  return VERTICAL_WRITING_MODES.has(writingMode)
+    ? WritingAxis.Vertical
+    : WritingAxis.Horizontal;
 }
