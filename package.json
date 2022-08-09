@@ -2,6 +2,7 @@
   "name": "container-query-polyfill",
   "version": "0.2.0",
   "description": "",
+  "repository": "github:GoogleChromeLabs/container-query-polyfill",
   "type": "module",
   "module": "dist/container-query-polyfill.modern.js",
   "unpkg": "dist/container-query-polyfill.modern.js",
