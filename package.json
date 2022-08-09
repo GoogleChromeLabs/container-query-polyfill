@@ -15,7 +15,7 @@
   "files": [
     "README.md",
     "LICENSE",
-    "dist/src/*",
+    "dist/*.js",
     "package.json"
   ],
   "scripts": {
