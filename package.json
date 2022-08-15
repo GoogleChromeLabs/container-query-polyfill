@@ -21,7 +21,7 @@
   "scripts": {
     "build:clean": "rimraf ./dist/",
     "build:wpt": "microbundle -f modern --no-compress --define PACKAGE_VERSION=${npm_package_version},IS_WPT_BUILD=1",
-    "build": "microbundle -f modern --define PACKAGE_VERSION=${npm_package_version},IS_WPT_BUILD=0",
+    "build": "microbundle -f modern --no-sourcemap --define PACKAGE_VERSION=${npm_package_version},IS_WPT_BUILD=0",
     "lint": "eslint '**/*.ts'",
     "prettier:fix": "prettier --write .",
     "serve": "superstatic -p 9606 .",
