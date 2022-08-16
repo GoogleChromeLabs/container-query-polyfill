@@ -117,13 +117,13 @@ const SAFARI_IOS_DEFINITION: BrowserDefinition = {
   logo: 'https://unpkg.com/@browser-logos/safari-ios@1.0.15/safari-ios.svg',
   versions: (
     [
-      // ['13.7', '13.7'],
-      // ['14.0', '14'],
-      // ['14.1', '14'],
-      // ['15.0', '15'],
-      // ['15.2', '15'],
-      // ['15.4', '15'],
-      // ['15.5', '15'],
+      ['13.7', '13.7'],
+      ['14.0', '14'],
+      ['14.1', '14'],
+      ['15.0', '15'],
+      ['15.2', '15'],
+      ['15.4', '15'],
+      ['15.5', '15'],
       ['15.6', '15'],
     ] as Array<[string, string]>
   ).map(([browserVersion, osVersion]) => ({
@@ -147,9 +147,9 @@ const SAFARI_MACOS_DEFINITION: BrowserDefinition = {
   logo: 'https://unpkg.com/@browser-logos/safari-ios@1.0.15/safari-ios.svg',
   versions: (
     [
-      // ['13.1', 'Catalina'],
-      // ['14.1', 'Big Sur'],
-      // ['15.3', 'Monterey'],
+      ['13.1', 'Catalina'],
+      ['14.1', 'Big Sur'],
+      ['15.3', 'Monterey'],
     ] as Array<[string, string]>
   ).map(([browserVersion, osVersion]) => ({
     name: browserVersion,
@@ -216,15 +216,15 @@ const SAMSUNG_INTERNET_DEFINITION: BrowserDefinition = {
   name: 'Samsung Internet',
   logo: 'https://unpkg.com/@browser-logos/samsung-internet@4.0.6/samsung-internet.svg',
   versions: [
-    // '9.2',
-    // '10.1',
-    // '11.2',
-    // '12.0',
-    // '13.0',
-    // '14.0',
-    // '15.0',
-    // '16.0',
-    // '17.0',
+    '9.2',
+    '10.1',
+    '11.2',
+    '12.0',
+    '13.0',
+    '14.0',
+    '15.0',
+    '16.0',
+    '17.0',
   ].map(browserVersion => ({
     name: browserVersion,
     data: {
