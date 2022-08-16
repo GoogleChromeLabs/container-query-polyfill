@@ -92,7 +92,7 @@ const SUBTEST_FILTERS: Array<RegExp> = [
 const CHROME_DEFINITION: BrowserDefinition = {
   name: 'Chrome',
   logo: 'https://unpkg.com/@browser-logos/chrome@2.0.0/chrome.svg',
-  versions: Array.from({length: 0 /*103 - 79*/})
+  versions: Array.from({length: 104 - 79})
     .map((_, i) => 79 + i)
     .filter(version => ![82].includes(version))
     .map(version => `${version}.0`)
@@ -170,7 +170,7 @@ const SAFARI_MACOS_DEFINITION: BrowserDefinition = {
 const EDGE_DEFINITION: BrowserDefinition = {
   name: 'Edge',
   logo: 'https://unpkg.com/@browser-logos/edge@2.0.5/edge.svg',
-  versions: Array.from({length: 0 /*102 - 80*/})
+  versions: Array.from({length: 104 - 80})
     .map((_, i) => 80 + i)
     .filter(version => ![82].includes(version))
     .map(version => `${version}.0`)
@@ -193,7 +193,7 @@ const EDGE_DEFINITION: BrowserDefinition = {
 const FIREFOX_DEFINITION: BrowserDefinition = {
   name: 'Firefox',
   logo: 'https://unpkg.com/@browser-logos/firefox@3.0.9/firefox.svg',
-  versions: Array.from({length: 0 /*101 - 69*/})
+  versions: Array.from({length: 103 - 69})
     .map((_, i) => 69 + i)
     .map(version => `${version}.0`)
     .map(browserVersion => ({
