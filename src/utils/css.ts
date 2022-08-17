@@ -710,7 +710,7 @@ export function* tokenize(source: string): Generator<Node> {
 
       if (isIdent(code)) {
         value += getCurrentString();
-      } else if (isValidEscape(at(1), at(2))) {
+      } else if (isValidEscape(code, at(1))) {
         value += consumeEscapedCodePoint();
       } else {
         reconsume();
@@ -890,7 +890,7 @@ export function* tokenize(source: string): Generator<Node> {
         yield consumeIdentLikeToken();
       } else {
         error();
-        return consumeDelimToken();
+        yield consumeDelimToken();
       }
     } else if (code === CodePoints.RIGHT_SQUARE_BRACKET) {
       yield {type: Type.RightSquareBracketToken};
@@ -1487,7 +1487,7 @@ const BLOCK_MAP: {[key in Type]?: [string, string]} = {
 function serializeInternal(node: Node, level: number): string {
   switch (node.type) {
     case Type.AtRuleNode:
-      return `@${node.name} ${node.prelude
+      return `@${CSS.escape(node.name)} ${node.prelude
         .map(n => serializeInternal(n, 0))
         .join('')}${node.value ? serializeInternal(node.value, level) : ''}`;
 
@@ -1503,12 +1503,12 @@ function serializeInternal(node: Node, level: number): string {
     }
 
     case Type.FunctionNode:
-      return `${node.name}(${node.value
+      return `${CSS.escape(node.name)}(${node.value
         .map(n => serializeInternal(n, 0))
         .join('')})`;
 
     case Type.DeclarationNode:
-      return `${node.name}:${node.value
+      return `${CSS.escape(node.name)}:${node.value
         .map(n => serializeInternal(n, 0))
         .join('')}${node.important ? ' !important' : ''}`;
 
@@ -1522,13 +1522,13 @@ function serializeInternal(node: Node, level: number): string {
       return ':';
 
     case Type.HashToken:
-      return '#' + node.value;
+      return '#' + CSS.escape(node.value);
 
     case Type.IdentToken:
-      return node.value;
+      return CSS.escape(node.value);
 
     case Type.DimensionToken:
-      return node.value + node.unit;
+      return node.value + CSS.escape(node.unit);
 
     case Type.DelimToken:
       return node.value;
@@ -1537,16 +1537,16 @@ function serializeInternal(node: Node, level: number): string {
       return node.value;
 
     case Type.StringToken:
-      return `"${node.value}"`;
+      return `"${CSS.escape(node.value)}"`;
 
     case Type.CommaToken:
       return ',';
 
     case Type.URLToken:
-      return 'url(' + node.value + ')';
+      return 'url(' + CSS.escape(node.value) + ')';
 
     case Type.AtKeywordToken:
-      return '@' + node.value;
+      return '@' + CSS.escape(node.value);
 
     case Type.PercentageToken:
       return node.value + '%';
