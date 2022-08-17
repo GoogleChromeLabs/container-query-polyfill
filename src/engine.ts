@@ -542,7 +542,7 @@ export function initializePolyfill() {
 }
 
 class NodeController<T extends Node> {
-  node: T;
+  protected node: T;
 
   constructor(node: T) {
     this.node = node;
@@ -563,15 +563,13 @@ class NodeController<T extends Node> {
 }
 
 class LinkElementController extends NodeController<HTMLLinkElement> {
-  context: StyleSheetContext;
-  controller: AbortController | null;
-  styleSheet: StyleSheetInstance | null;
+  private context: StyleSheetContext;
+  private controller: AbortController | null = null;
+  private styleSheet: StyleSheetInstance | null = null;
 
   constructor(node: HTMLLinkElement, context: StyleSheetContext) {
     super(node);
     this.context = context;
-    this.controller = null;
-    this.styleSheet = null;
   }
 
   connected(): void {
@@ -615,15 +613,13 @@ class LinkElementController extends NodeController<HTMLLinkElement> {
 }
 
 class StyleElementController extends NodeController<HTMLStyleElement> {
-  context: StyleSheetContext;
-  controller: AbortController | null;
-  styleSheet: StyleSheetInstance | null;
+  private context: StyleSheetContext;
+  private controller: AbortController | null = null;
+  private styleSheet: StyleSheetInstance | null = null;
 
   constructor(node: HTMLStyleElement, context: StyleSheetContext) {
     super(node);
     this.context = context;
-    this.controller = null;
-    this.styleSheet = null;
   }
 
   connected(): void {
@@ -655,7 +651,7 @@ class GlobalStyleElementController extends NodeController<HTMLStyleElement> {
 }
 
 class DummyElementController extends NodeController<HTMLElement> {
-  context: ViewportChangeContext;
+  private context: ViewportChangeContext;
 
   constructor(node: HTMLElement, context: ViewportChangeContext) {
     super(node);
@@ -680,15 +676,13 @@ class DummyElementController extends NodeController<HTMLElement> {
 }
 
 class LayoutStateManager {
-  styles: CSSStyleDeclaration;
-  cachedState: LayoutState | null;
-  cachedLayoutData: ParsedLayoutData | null;
-  context: LayoutStateContext;
+  private cachedState: LayoutState | null = null;
+  private cachedLayoutData: ParsedLayoutData | null = null;
+  private context: LayoutStateContext;
+  private styles: CSSStyleDeclaration;
 
   constructor(element: Element, context: LayoutStateContext) {
     this.styles = window.getComputedStyle(element);
-    this.cachedState = null;
-    this.cachedLayoutData = null;
     this.context = context;
   }
 
