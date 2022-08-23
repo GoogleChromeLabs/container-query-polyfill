@@ -1489,7 +1489,7 @@ function serializeInternal(node: Node, level: number): string {
     case Type.AtRuleNode:
       return `@${CSS.escape(node.name)} ${node.prelude
         .map(n => serializeInternal(n, 0))
-        .join('')}${node.value ? serializeInternal(node.value, level) : ''}`;
+        .join('')}${node.value ? serializeInternal(node.value, level) : ';'}`;
 
     case Type.QualifiedRuleNode:
       return `${node.prelude

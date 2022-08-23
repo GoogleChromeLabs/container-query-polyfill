@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<script src="./../dist/container-query-polyfill.modern.js"></script>
+<style>
+  @layer empty-layer;
+  @layer multiple layer names;
+  @layer /* anonymous layer */ {
+  }
+
+  @layer test-layer {
+    @container (width > 0) {
+      h1 {
+        font-size: 20px;
+      }
+    }
+  }
+
+  #a {
+    container-type: inline-size;
+  }
+</style>
+<div id="a">
+  <h1>Ohai</h1>
+</div>
+<script type="module">
+  import {doubleRaf, testSuite, assert} from './test-utils.js';
+
+  testSuite('Manual transpiling', async () => {
+    await doubleRaf();
+
+    const computed = getComputedStyle(document.querySelector('h1'));
+    assert(
+      computed.fontSize === '20px',
+      `Expected fontSize to be 20px, got ${computed.fontSize}`
+    );
+  });
+</script>

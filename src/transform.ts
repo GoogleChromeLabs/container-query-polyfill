@@ -661,6 +661,24 @@ function transformContainerAtRule(
   return node;
 }
 
+function transformLayerAtRule(
+  node: AtRuleNode,
+  context: TransformContext
+): AtRuleNode {
+  return {
+    ...node,
+    value: node.value
+      ? {
+          ...node.value,
+          value: transformStylesheet(
+            parseStylesheet(node.value.value.value),
+            context
+          ),
+        }
+      : null,
+  };
+}
+
 function transformAtRule(
   node: AtRuleNode,
   context: TransformContext
@@ -677,6 +695,9 @@ function transformAtRule(
 
     case 'container':
       return transformContainerAtRule(node, context);
+
+    case 'layer':
+      return transformLayerAtRule(node, context);
   }
   return node;
 }
