@@ -646,7 +646,11 @@ class StyleElementController extends NodeController<HTMLStyleElement> {
 
 class GlobalStyleElementController extends NodeController<HTMLStyleElement> {
   connected(): void {
-    this.node.innerHTML = `* { ${CUSTOM_PROPERTY_TYPE}: cq-normal; ${CUSTOM_PROPERTY_NAME}: cq-none; }`;
+    const style = `* { ${CUSTOM_PROPERTY_TYPE}: cq-normal; ${CUSTOM_PROPERTY_NAME}: cq-none; }`;
+    this.node.innerHTML =
+      typeof (window as any).CSSLayerBlockRule === 'undefined'
+        ? style
+        : `@layer cq-polyfill-${PER_RUN_UID} { ${style} }`;
   }
 }
 
