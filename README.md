@@ -6,12 +6,20 @@ A small (9 kB compressed) polyfill for CSS Container Queries using [`ResizeObser
 - Range queries (`200px < width < 400px` and `width < 400px`)
 - Container relative length units (`cqw`, `cqh`, `cqi`, `cqb`, `cqmin`, and `cqmax`) in properties and keyframes
 
+## Browser Support
+
+* Firefox 69+
+* Chrome 79+
+* Edge 79+
+* Safari 13.4+
+
+
 ## Getting Started
 
-To use the polyfill, add this script tag to the head of your document: :
+To use the polyfill, add this script tag to your document `<head>`:
 
 ```js
-<script type="module">
+<script>
   if (!("container" in document.documentElement.style)) {
     import("https://unpkg.com/container-query-polyfill@^0.2.0");
   }
@@ -41,12 +49,12 @@ For the best user experience, it's recommended that you initially only use the p
 You can view a more complete demo [here](https://codesandbox.io/s/smoosh-glitter-m2ub4w?file=/index.html). On sufficiently fast networks and devices, or devices that natively support Container Queries, this loading indicator will never be displayed.
 
 > **Note**
-> Keep in mind that this technique effectively trades off LCP for less jank during initial load, so you may see regressions in the former as a result, particularly on low end devices.
+> Keep in mind that this technique effectively limits impact on FID and CLS, potentially at the expense of LCP. You may see regressions in the latter as a result, particularly on lower end devices or in poor network conditions.
 
 ## Limitations
 
-- **CSS first**: The polyfill currently only supports `<style>` and `<link>` elements. Inline styles via the `style` attribute or CSSOM methods are not polyfilled. Likewise, JavaScript APIs like `CSSContainerRule` are not polyfilled, and APIs like `CSS.supports()` are not monkey-patched.
-- **Best effort**: Style changes that do not lead to observable DOM or layout mutations (e.g. `font-size` in a container without content) may not be detected, or may be detected a frame late on some browsers.
+- **CSS first**: The polyfill currently only supports `<style>` and same-origin `<link>` elements. Inline styles via the `style` attribute or CSSOM methods are not polyfilled. Likewise, JavaScript APIs like `CSSContainerRule` are not polyfilled, and APIs like `CSS.supports()` are not monkey-patched.
+- **Best effort**: Style changes that do not lead to observable DOM or layout mutations (e.g. changing `font-size` in a container without content) may not be detected, or may be detected a frame late on some browsers.
 - Currently, there is no support for Shadow DOM, or functions like `calc(...)` in container conditions. Your contribution would be welcome!
 
 ## Supporting browsers without `:where()`
@@ -122,3 +130,7 @@ This is to ensure the specificity of your rules never changes (e.g. while the po
 ## ResizeObserver Loop Errors
 
 When using the polyfill, you may observe reports of errors like `ResizeObserver loop completed with undelivered notifications` or `ResizeObserver loop limit exceeded`. These are expected, and may safely be ignored.
+
+## License
+
+[Apache 2.0](LICENSE)
