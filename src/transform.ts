@@ -93,6 +93,8 @@ const NO_WHERE_SELECTOR_TOKENS = parseComponentValue(
   Array.from(tokenize(NO_WHERE_SELECTOR))
 );
 
+const DUMMY_ELEMENT = document.createElement('div');
+
 // https://www.w3.org/TR/selectors-4/#single-colon-pseudos
 const SINGLE_COLON_PSEUDO_ELEMENTS = new Set([
   'before',
@@ -600,7 +602,14 @@ function transformContainerAtRule(
               return rule;
             }
 
-            elementSelectors.add(elementSelector.map(serialize).join(''));
+            const elementSelectorText = elementSelector.map(serialize).join('');
+            try {
+              DUMMY_ELEMENT.matches(elementSelectorText);
+              elementSelectors.add(elementSelectorText);
+            } catch {
+              // If `matches` throws, we won't use the selector when testing elements.
+            }
+
             return {
               ...rule,
               prelude: styleSelector,

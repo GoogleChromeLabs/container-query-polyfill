@@ -8,11 +8,10 @@ A small (9 kB compressed) polyfill for CSS Container Queries using [`ResizeObser
 
 ## Browser Support
 
-* Firefox 69+
-* Chrome 79+
-* Edge 79+
-* Safari 13.4+
-
+- Firefox 69+
+- Chrome 79+
+- Edge 79+
+- Safari 13.4+
 
 ## Getting Started
 
