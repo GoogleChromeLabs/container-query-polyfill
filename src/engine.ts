@@ -170,6 +170,7 @@ export function initializePolyfill() {
     return;
   }
 
+  const cachedStyleSheetOwners: Node[] = [];
   let cachedQueryDescriptors: ContainerQueryDescriptor[] | null = null;
 
   const dummyElement = document.createElement(`cq-polyfill-${PER_RUN_UID}`);
@@ -206,6 +207,18 @@ export function initializePolyfill() {
     attributes: true,
     attributeOldValue: true,
   });
+
+  const originalAttachShadow = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function(options) {
+    const shadow = originalAttachShadow.apply(this, [options]);
+    mutationObserver.observe(shadow, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeOldValue: true,
+    });
+    return shadow;
+  }
 
   const pendingMutations: Array<() => void> = [];
   let shouldQueueMutations = false;
@@ -265,10 +278,12 @@ export function initializePolyfill() {
     };
 
     if (!signal?.aborted) {
-      queryDescriptorMap.set(node, result.descriptors);
+      queryDescriptorMap.set(node instanceof ShadowRoot ? node.host : node, result.descriptors);
       dispose = () => queryDescriptorMap.delete(node);
       cachedQueryDescriptors = null;
     }
+
+    cachedStyleSheetOwners.push(node);
 
     return {
       source: result.source,
@@ -282,9 +297,8 @@ export function initializePolyfill() {
   function getQueryDescriptors() {
     if (!cachedQueryDescriptors) {
       cachedQueryDescriptors = [];
-
-      for (const styleSheet of document.styleSheets) {
-        const ownerNode = styleSheet.ownerNode;
+      for (const owner of cachedStyleSheetOwners) {
+        const ownerNode = owner instanceof ShadowRoot ? owner.host : owner;
         if (ownerNode instanceof Element) {
           const queryDescriptors = queryDescriptorMap.get(ownerNode);
           if (queryDescriptors) {
@@ -351,7 +365,7 @@ export function initializePolyfill() {
         });
       } else {
         const parentNode = node.parentNode;
-        const parentController = parentNode ? getInstance(parentNode) : null;
+        const parentController = parentNode ? getInstance(parentNode) : (node as ShadowRoot).host ? getInstance((node as ShadowRoot).host) : null;
 
         if (!parentController) {
           throw new Error('Expected node to have parent');
@@ -383,6 +397,14 @@ export function initializePolyfill() {
               registerStyleSheet(node, {
                 ...options,
               }),
+          });
+        } else if (node instanceof ShadowRoot) {
+          innerController = new ShadowStyleSheetController(node, {
+            registerStyleSheet: options => {
+              return registerStyleSheet(node, {
+                ...options,
+              })
+            }
           });
         } else if (node instanceof HTMLStyleElement) {
           innerController = new StyleElementController(node, {
@@ -642,6 +664,60 @@ class StyleElementController extends NodeController<HTMLStyleElement> {
     this.styleSheet?.dispose();
     this.styleSheet = null;
   }
+} 
+
+class ShadowStyleSheetController extends NodeController<ShadowRoot> {
+  private context: StyleSheetContext;
+  private controller: AbortController | null = null;
+  private styleSheet: StyleSheetInstance | null = null;
+
+  constructor(node: ShadowRoot, context: StyleSheetContext) {
+    super(node);
+    this.context = context;
+  }
+
+  connected(): void {
+    // cast any to access constructor.styles
+    const host = this.node.host as any;
+    const cssText = host.constructor?.styles?.cssText;
+    if (cssText) {
+      this.controller = tryAbortableFunction(async signal => {
+        const styleSheet = (this.styleSheet =
+          await this.context.registerStyleSheet({
+            source: cssText,
+            signal,
+          }));
+        // typescript compilation bug cast any
+        const adoptStyleSheet = (this.node as any).adoptedStyleSheets[0] as any;
+        adoptStyleSheet.replaceSync(styleSheet.source);
+        // set container type on host if CSS selector matches
+        for (const rule of adoptStyleSheet.cssRules) {
+          if ((rule as any).style) {
+            const value = rule.style.getPropertyValue(CUSTOM_PROPERTY_TYPE).trim();
+            if (value) {
+              const selector: string = rule.selectorText.replace(':host', host.localName);
+              // handle parentheses on :host([attribute])
+              const mutatedSelector = !selector.includes(':') ? selector.replace('(', '').replace(')', '') : selector;
+              // if match apply rule
+              if (host.matches(mutatedSelector)) {
+                host.style.setProperty(CUSTOM_PROPERTY_TYPE, value);
+                break;
+              }
+            }
+          }
+        }
+        styleSheet.refresh();
+      });
+    }
+  }
+
+  disconnected(): void {
+    this.controller?.abort();
+    this.controller = null;
+
+    this.styleSheet?.dispose();
+    this.styleSheet = null;
+  }
 }
 
 class GlobalStyleElementController extends NodeController<HTMLStyleElement> {
@@ -684,8 +760,10 @@ class LayoutStateManager {
   private cachedLayoutData: ParsedLayoutData | null = null;
   private context: LayoutStateContext;
   private styles: CSSStyleDeclaration;
+  private element: Element;
 
   constructor(element: Element, context: LayoutStateContext) {
+    this.element = element;
     this.styles = window.getComputedStyle(element);
     this.context = context;
   }
@@ -772,10 +850,18 @@ class LayoutStateManager {
         fontSize: data.fontSize,
         writingAxis: data.writingAxis,
       };
-      const containerType = computeContainerType(
-        styles.getPropertyValue(CUSTOM_PROPERTY_TYPE).trim()
-      );
-
+      const containerType = (() => {
+        let propValue;
+        if (this.element.parentNode instanceof ShadowRoot) {
+          const host = this.element.parentNode.host;
+          propValue = window.getComputedStyle(host).getPropertyValue(CUSTOM_PROPERTY_TYPE).trim();
+        }
+        if (!propValue) {
+          propValue = styles.getPropertyValue(CUSTOM_PROPERTY_TYPE).trim();
+        }
+        return computeContainerType(
+          propValue
+      )})();
       if (containerType > 0) {
         conditions = new Map();
         isQueryContainer = true;
