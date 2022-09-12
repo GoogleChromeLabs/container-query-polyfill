@@ -217,24 +217,49 @@ export function initializePolyfill() {
     }
   }
 
-  const pendingResize: Set<Node> = new Set();
+  let hasPendingClear = false;
+  const processedInstances = new Set<Instance>();
+  const queuedInstances = new Set<Instance>();
+
   const resizeObserver = new ResizeObserver(entries => {
-    try {
-      shouldQueueMutations = true;
-      entries
-        .map(entry => {
-          const node = entry.target;
-          pendingResize.add(node);
-          return getOrCreateInstance(node);
-        })
-        .sort((a, b) => a.depth - b.depth)
-        .forEach(instance => instance.resize());
-    } finally {
-      pendingResize.clear();
-      shouldQueueMutations = false;
-      pendingMutations.forEach(callback => callback());
-      pendingMutations.length = 0;
-    }
+    measureBlock('ResizeObserver: Callback', () => {
+      try {
+        shouldQueueMutations = true;
+        if (!hasPendingClear) {
+          hasPendingClear = true;
+          requestAnimationFrame(() => {
+            hasPendingClear = false;
+            processedInstances.clear();
+            queuedInstances.forEach(instance => instance.resize());
+            queuedInstances.clear();
+          });
+        }
+        let depth: number | null = null;
+        entries
+          .map(entry => {
+            const node = entry.target;
+            return getOrCreateInstance(node);
+          })
+          .sort((a, b) => a.depth - b.depth)
+          .forEach(instance => {
+            if (depth === null) {
+              depth = instance.depth;
+            } else if (instance.depth > depth) {
+              return;
+            }
+            measureBlock(
+              `ResizeObserver: Resize [Depth ${instance.depth}]`,
+              () => instance.resize()
+            );
+          });
+      } finally {
+        measureBlock('ResizeObserver: Mutations', () => {
+          shouldQueueMutations = false;
+          pendingMutations.forEach(callback => callback());
+          pendingMutations.length = 0;
+        });
+      }
+    });
   });
 
   function forceUpdate(el: Element) {
@@ -398,7 +423,15 @@ export function initializePolyfill() {
 
       const scheduleUpdate =
         node instanceof Element
-          ? () => forceUpdate(node)
+          ? () => {
+              if (
+                !processedInstances.has(instance!) &&
+                !queuedInstances.has(instance!)
+              ) {
+                queuedInstances.add(instance!);
+                forceUpdate(node);
+              }
+            }
           : () => {
               /* NOOP */
             };
@@ -407,126 +440,145 @@ export function initializePolyfill() {
           ? node.style
           : null;
 
+      const measureElemBlock = (measureName: string, callback: () => void) => {
+        const nodeName =
+          node instanceof Element
+            ? `${node.tagName.toLowerCase()}[${['id', 'class']
+                .map(attr => `${attr}="${node.getAttribute(attr)}"`)
+                .join(', ')}]`
+            : node.toString();
+        measureBlock(`[${measureName}] ${nodeName}`, callback);
+      };
+
       instance = {
         depth,
         state,
 
         connect() {
-          if (node instanceof Element) {
-            resizeObserver.observe(node);
-          }
-          for (const child of node.childNodes) {
-            // Ensure all children are created and connected first.
-            getOrCreateInstance(child);
-          }
-          innerController.connected();
-          scheduleUpdate();
+          measureElemBlock('Connect', () => {
+            if (node instanceof Element) {
+              resizeObserver.observe(node);
+            }
+            for (const child of node.childNodes) {
+              // Ensure all children are created and connected first.
+              getOrCreateInstance(child);
+            }
+            innerController.connected();
+            scheduleUpdate();
+          });
         },
 
         disconnect() {
-          if (node instanceof Element) {
-            resizeObserver.unobserve(node);
-            node.removeAttribute(DATA_ATTRIBUTE_SELF);
-            node.removeAttribute(DATA_ATTRIBUTE_CHILD);
-          }
-          if (inlineStyles) {
-            inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQI);
-            inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQB);
-            inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQW);
-            inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQH);
-          }
-          for (const child of node.childNodes) {
-            const instance = getInstance(child);
-            instance?.disconnect();
-          }
-          innerController.disconnected();
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          delete (node as any)[INSTANCE_SYMBOL];
+          measureElemBlock('Disconnect', () => {
+            if (node instanceof Element) {
+              resizeObserver.unobserve(node);
+              node.removeAttribute(DATA_ATTRIBUTE_SELF);
+              node.removeAttribute(DATA_ATTRIBUTE_CHILD);
+            }
+            if (inlineStyles) {
+              inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQI);
+              inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQB);
+              inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQW);
+              inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQH);
+            }
+            for (const child of node.childNodes) {
+              const instance = getInstance(child);
+              instance?.disconnect();
+            }
+            innerController.disconnected();
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            delete (node as any)[INSTANCE_SYMBOL];
+          });
         },
 
         resize() {
-          state.invalidate();
-          updateAttributes(node, state, DATA_ATTRIBUTE_SELF);
+          measureElemBlock('Resize', () => {
+            if (processedInstances.has(instance!)) {
+              return;
+            }
+            processedInstances.add(instance!);
+            queuedInstances.delete(instance!);
 
-          if (inlineStyles) {
-            const currentState = state.get();
-            const context = currentState.context;
-            const writingAxis = context.writingAxis;
+            state.invalidate();
+            updateAttributes(node, state, DATA_ATTRIBUTE_SELF);
 
-            queueMutation(() => {
-              if (
-                !parentState ||
-                writingAxis !== parentState.get().context.writingAxis ||
-                currentState.isQueryContainer
-              ) {
-                inlineStyles.setProperty(
-                  CUSTOM_UNIT_VARIABLE_CQI,
-                  `var(${
-                    writingAxis === WritingAxis.Horizontal
-                      ? CUSTOM_UNIT_VARIABLE_CQW
-                      : CUSTOM_UNIT_VARIABLE_CQH
-                  })`
-                );
-                inlineStyles.setProperty(
-                  CUSTOM_UNIT_VARIABLE_CQB,
-                  `var(${
-                    writingAxis === WritingAxis.Vertical
-                      ? CUSTOM_UNIT_VARIABLE_CQW
-                      : CUSTOM_UNIT_VARIABLE_CQH
-                  })`
-                );
-              } else {
-                inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQI);
-                inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQB);
-              }
+            if (inlineStyles) {
+              const currentState = state.get();
+              const context = currentState.context;
+              const writingAxis = context.writingAxis;
 
-              if (!parentState || currentState.isQueryContainer) {
-                if (context.cqw) {
+              queueMutation(() => {
+                if (
+                  !parentState ||
+                  writingAxis !== parentState.get().context.writingAxis ||
+                  currentState.isQueryContainer
+                ) {
                   inlineStyles.setProperty(
-                    CUSTOM_UNIT_VARIABLE_CQW,
-                    context.cqw + 'px'
+                    CUSTOM_UNIT_VARIABLE_CQI,
+                    `var(${
+                      writingAxis === WritingAxis.Horizontal
+                        ? CUSTOM_UNIT_VARIABLE_CQW
+                        : CUSTOM_UNIT_VARIABLE_CQH
+                    })`
                   );
-                }
-                if (context.cqh) {
                   inlineStyles.setProperty(
-                    CUSTOM_UNIT_VARIABLE_CQH,
-                    context.cqh + 'px'
+                    CUSTOM_UNIT_VARIABLE_CQB,
+                    `var(${
+                      writingAxis === WritingAxis.Vertical
+                        ? CUSTOM_UNIT_VARIABLE_CQW
+                        : CUSTOM_UNIT_VARIABLE_CQH
+                    })`
                   );
+                } else {
+                  inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQI);
+                  inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQB);
                 }
-              } else {
-                inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQW);
-                inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQH);
-              }
-            });
-          }
 
-          innerController.resized(state);
-          for (const child of node.childNodes) {
-            const instance = getOrCreateInstance(child);
-            instance.parentResize();
-          }
-        },
+                if (!parentState || currentState.isQueryContainer) {
+                  if (context.cqw) {
+                    inlineStyles.setProperty(
+                      CUSTOM_UNIT_VARIABLE_CQW,
+                      context.cqw + 'px'
+                    );
+                  }
+                  if (context.cqh) {
+                    inlineStyles.setProperty(
+                      CUSTOM_UNIT_VARIABLE_CQH,
+                      context.cqh + 'px'
+                    );
+                  }
+                } else {
+                  inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQW);
+                  inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQH);
+                }
+              });
+            }
 
-        parentResize() {
-          state.invalidate();
-          updateAttributes(node, parentState, DATA_ATTRIBUTE_CHILD);
-          scheduleUpdate();
-
-          if (!pendingResize.has(node)) {
+            innerController.resized(state);
             for (const child of node.childNodes) {
               const instance = getOrCreateInstance(child);
               instance.parentResize();
             }
-          }
+          });
+        },
+
+        parentResize() {
+          measureElemBlock('Parent Resize', () => {
+            state.invalidate();
+            updateAttributes(node, parentState, DATA_ATTRIBUTE_CHILD);
+            scheduleUpdate();
+          });
         },
 
         mutate() {
-          state.invalidate();
-          scheduleUpdate();
+          measureElemBlock('Mutate', () => {
+            state.invalidate();
+            scheduleUpdate();
 
-          for (const child of node.childNodes) {
-            getOrCreateInstance(child);
-          }
+            for (const child of node.childNodes) {
+              getOrCreateInstance(child);
+            }
+          });
         },
       };
 
@@ -971,4 +1023,18 @@ function computeWritingAxis(writingMode: string) {
   return VERTICAL_WRITING_MODES.has(writingMode)
     ? WritingAxis.Vertical
     : WritingAxis.Horizontal;
+}
+
+function measureBlock(measureName: string, callback: () => void) {
+  if (IS_WPT_BUILD) {
+    const start = performance.now();
+    try {
+      callback();
+    } finally {
+      const end = performance.now();
+      performance.measure(measureName, {start, end});
+    }
+  } else {
+    callback();
+  }
 }
