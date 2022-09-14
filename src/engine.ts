@@ -148,8 +148,14 @@ interface LayoutStateContext {
 }
 
 export function initializePolyfill() {
-  interface Instance {
+  interface Layer {
     depth: number;
+    next: Layer | null;
+    dirty: Set<Instance>;
+  }
+
+  interface Instance {
+    layer: Layer;
     state: LayoutStateManager;
 
     connect(): void;
@@ -217,48 +223,101 @@ export function initializePolyfill() {
     }
   }
 
-  let hasPendingClear = false;
   const processedInstances = new Set<Instance>();
-  const queuedInstances = new Set<Instance>();
+
+  const scheduleUpdate = (node: Node) => {
+    if (node instanceof Element) {
+      const instance = getInstance(node);
+      if (instance && !processedInstances.has(instance)) {
+        const {layer} = instance;
+        if (!layer.dirty.has(instance)) {
+          layer.dirty.add(instance);
+        }
+        forceUpdate(node);
+        forceUpdate(documentElement);
+      }
+    }
+  };
+
+  const rootLayer: Layer = {
+    depth: 0,
+    dirty: new Set(),
+    next: null,
+  };
+  let nextExpectedLayer: Layer | null = null;
+
+  let rootResized = false;
+  const rootResizeObserver = new ResizeObserver(() => {
+    rootResized = true;
+  });
+  rootResizeObserver.observe(documentElement);
 
   const resizeObserver = new ResizeObserver(entries => {
     measureBlock('ResizeObserver: Callback', () => {
-      try {
-        shouldQueueMutations = true;
-        if (!hasPendingClear) {
-          hasPendingClear = true;
-          requestAnimationFrame(() => {
-            hasPendingClear = false;
-            processedInstances.clear();
-            queuedInstances.forEach(instance => instance.resize());
-            queuedInstances.clear();
-          });
+      shouldQueueMutations = true;
+
+      let lowestChangedLayer: Layer | null = null;
+      for (const entry of entries) {
+        const node = entry.target;
+        if (node === documentElement) {
+          if (!rootResized) {
+            continue;
+          }
+          rootResized = false;
         }
-        let depth: number | null = null;
-        entries
-          .map(entry => {
-            const node = entry.target;
-            return getOrCreateInstance(node);
-          })
-          .sort((a, b) => a.depth - b.depth)
-          .forEach(instance => {
-            if (depth === null) {
-              depth = instance.depth;
-            } else if (instance.depth > depth) {
-              return;
-            }
-            measureBlock(
-              `ResizeObserver: Resize [Depth ${instance.depth}]`,
-              () => instance.resize()
-            );
-          });
-      } finally {
-        measureBlock('ResizeObserver: Mutations', () => {
-          shouldQueueMutations = false;
-          pendingMutations.forEach(callback => callback());
-          pendingMutations.length = 0;
+
+        const instance = getOrCreateInstance(node);
+        if (processedInstances.has(instance)) {
+          continue;
+        }
+
+        // Since we're processing ResizeObserverEntries, we know
+        // that this instance needs to be marked dirty.
+        const {layer} = instance;
+        layer.dirty.add(instance);
+
+        if (
+          lowestChangedLayer == null ||
+          lowestChangedLayer.depth > layer.depth
+        ) {
+          lowestChangedLayer = layer;
+        }
+      }
+
+      if (
+        nextExpectedLayer != null &&
+        (lowestChangedLayer == null ||
+          nextExpectedLayer.depth < lowestChangedLayer.depth)
+      ) {
+        lowestChangedLayer = nextExpectedLayer;
+      }
+
+      let didProcessInstances = false;
+      if (lowestChangedLayer) {
+        const layer = lowestChangedLayer;
+        measureBlock(`ResizeObserver: Depth ${layer.depth}`, () => {
+          for (const instance of layer.dirty) {
+            processedInstances.add(instance);
+            didProcessInstances = true;
+            instance.resize();
+          }
+          layer.dirty.clear();
+          nextExpectedLayer = layer.next;
         });
       }
+
+      if (didProcessInstances || nextExpectedLayer != null) {
+        forceUpdate(documentElement);
+      } else {
+        processedInstances.clear();
+        nextExpectedLayer = null;
+      }
+
+      measureBlock('ResizeObserver: Mutations', () => {
+        shouldQueueMutations = false;
+        pendingMutations.forEach(callback => callback());
+        pendingMutations.length = 0;
+      });
     });
   });
 
@@ -353,7 +412,7 @@ export function initializePolyfill() {
       let innerController: NodeController<Node>;
       let parentState: LayoutStateManager | null = null;
       let state: LayoutStateManager;
-      let depth = 0;
+      let layer = rootLayer;
 
       if (node === documentElement) {
         innerController = rootController;
@@ -392,7 +451,12 @@ export function initializePolyfill() {
                 getQueryDescriptors,
               })
             : parentState;
-        depth = parentController.depth + 1;
+        const parentLayer = parentController.layer;
+        layer = parentLayer.next = parentLayer.next || {
+          depth: parentLayer.depth + 1,
+          next: null,
+          dirty: new Set(),
+        };
 
         if (node === dummyElement) {
           innerController = new DummyElementController(dummyElement, {
@@ -421,20 +485,6 @@ export function initializePolyfill() {
         }
       }
 
-      const scheduleUpdate =
-        node instanceof Element
-          ? () => {
-              if (
-                !processedInstances.has(instance!) &&
-                !queuedInstances.has(instance!)
-              ) {
-                queuedInstances.add(instance!);
-                forceUpdate(node);
-              }
-            }
-          : () => {
-              /* NOOP */
-            };
       const inlineStyles =
         node instanceof HTMLElement || node instanceof SVGElement
           ? node.style
@@ -451,7 +501,7 @@ export function initializePolyfill() {
       };
 
       instance = {
-        depth,
+        layer,
         state,
 
         connect() {
@@ -464,7 +514,7 @@ export function initializePolyfill() {
               getOrCreateInstance(child);
             }
             innerController.connected();
-            scheduleUpdate();
+            scheduleUpdate(node);
           });
         },
 
@@ -493,12 +543,6 @@ export function initializePolyfill() {
 
         resize() {
           measureElemBlock('Resize', () => {
-            if (processedInstances.has(instance!)) {
-              return;
-            }
-            processedInstances.add(instance!);
-            queuedInstances.delete(instance!);
-
             state.invalidate();
             updateAttributes(node, state, DATA_ATTRIBUTE_SELF);
 
@@ -566,14 +610,14 @@ export function initializePolyfill() {
           measureElemBlock('Parent Resize', () => {
             state.invalidate();
             updateAttributes(node, parentState, DATA_ATTRIBUTE_CHILD);
-            scheduleUpdate();
+            scheduleUpdate(node);
           });
         },
 
         mutate() {
           measureElemBlock('Mutate', () => {
             state.invalidate();
-            scheduleUpdate();
+            scheduleUpdate(node);
 
             for (const child of node.childNodes) {
               getOrCreateInstance(child);
