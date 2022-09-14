@@ -233,8 +233,13 @@ export function initializePolyfill() {
         if (!layer.dirty.has(instance)) {
           layer.dirty.add(instance);
         }
+
         forceUpdate(node);
-        forceUpdate(documentElement);
+        if (node === documentElement) {
+          rootResized = true;
+        } else {
+          forceUpdate(documentElement);
+        }
       }
     }
   };
@@ -358,6 +363,7 @@ export function initializePolyfill() {
       source: result.source,
       dispose,
       refresh() {
+        rootResized = true;
         forceUpdate(documentElement);
       },
     };
