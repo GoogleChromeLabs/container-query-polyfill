@@ -132,13 +132,13 @@ export const enum WritingAxis {
   Vertical,
 }
 
-export interface TreeContext {
+export type TreeContext = {
   cqw: number | null;
   cqh: number | null;
   fontSize: number;
   rootFontSize: number;
   writingAxis: WritingAxis;
-}
+};
 
 interface QueryContext {
   sizeFeatures: Map<SizeFeature, Value>;
