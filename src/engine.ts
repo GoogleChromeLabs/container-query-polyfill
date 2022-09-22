@@ -185,6 +185,13 @@ export function initializePolyfill() {
       }
 
       if (
+        entry.target.nodeType !== Node.DOCUMENT_NODE &&
+        entry.target.nodeType !== Node.DOCUMENT_FRAGMENT_NODE &&
+        entry.target.parentNode === null
+      ) {
+        continue;
+      }
+      if (
         entry.type === 'attributes' &&
         entry.attributeName &&
         (entry.attributeName === DATA_ATTRIBUTE_SELF ||
