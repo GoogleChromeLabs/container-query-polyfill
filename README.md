@@ -15,20 +15,17 @@ A small (9 kB compressed) polyfill for CSS Container Queries using [`ResizeObser
 
 ## Getting Started
 
-To use the polyfill, add this script tag to your document `<head>`:
+### Installation
 
-```js
-<script>
-  if (!("container" in document.documentElement.style)) {
-    import("https://unpkg.com/container-query-polyfill@^0.2.0");
-  }
-</script>
+```bash
+npm install --save container-query-polyfill
 ```
 
-You may also wish to use a service to conditionally deliver the polyfill based on `User-Agent`, or self-host it on your own origin.
+Alternatively, you can use it directly from a CDN:
 
-> **Note**
-> All browsers have support for container queries released or on their roadmap, so it's recommended that you avoid bundling the polyfill with your other code.
+```js
+<script src="https://cdn.jsdelivr.net/npm/container-query-polyfill@0.2.4/dist/container-query-polyfill.modern.js"></script>
+```
 
 For the best user experience, it's recommended that you initially only use the polyfill for content below-the-fold and use `@supports` queries to temporarily replace it with a loading indicator until the polyfill is ready to display it:
 
@@ -53,7 +50,7 @@ You can view a more complete demo [here](https://codesandbox.io/s/smoosh-glitter
 ## Limitations
 
 - **CSS first**: The polyfill currently only supports `<style>` and same-origin `<link>` elements. Inline styles via the `style` attribute or CSSOM methods are not polyfilled. Likewise, JavaScript APIs like `CSSContainerRule` are not polyfilled, and APIs like `CSS.supports()` are not monkey-patched.
-- **Best effort**: Style changes that do not lead to observable DOM or layout mutations (e.g. changing `font-size` in a container without content) may not be detected, or may be detected a frame late on some browsers.
+- **Best effort**: Style changes that do not lead to observable DOM or layout mutations (e.g. changing `font-size` in a container without content) may not be detected, or may be detected a frame late on some browsers. [Complex sibling CSS selectors](https://github.com/GoogleChromeLabs/container-query-polyfill/issues/56) aren't supported.
 - Currently, there is no support for Shadow DOM, or functions like `calc(...)` in container conditions. Your contribution would be welcome!
 
 ## Supporting browsers without `:where()`
