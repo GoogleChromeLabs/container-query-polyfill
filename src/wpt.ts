@@ -21,9 +21,7 @@ export function initializeForWPT() {
     return new Promise<void>(resolve => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            resolve();
-          });
+          resolve();
         });
       });
     });
