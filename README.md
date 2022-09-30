@@ -24,7 +24,7 @@ npm install --save container-query-polyfill
 Alternatively, you can use it directly from a CDN:
 
 ```js
-<script src="https://cdn.jsdelivr.net/npm/container-query-polyfill@0.2.4/dist/container-query-polyfill.modern.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/container-query-polyfill@1/dist/container-query-polyfill.modern.js"></script>
 ```
 
 For the best user experience, it's recommended that you initially only use the polyfill for content below-the-fold and use `@supports` queries to temporarily replace it with a loading indicator until the polyfill is ready to display it:
