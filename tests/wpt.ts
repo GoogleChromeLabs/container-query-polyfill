@@ -12,87 +12,52 @@
  */
 
 import {eachLimit, retry} from 'async';
-import {readFile} from 'fs/promises';
+import {readFile, writeFile} from 'fs/promises';
+import {dirname, join} from 'path';
 import {Agent} from 'http';
 import {Builder, By, until} from 'selenium-webdriver';
 import {Local} from 'browserstack-local';
+import {fileURLToPath} from 'url';
 
 type Capabilities = Record<string, unknown>;
 
-const enum DataType {
+export const enum DataType {
   FetchDescriptor,
   Result,
 }
 
-interface ResultData {
-  type: DataType.Result;
-  result: [number, number];
+export interface TestDescriptor {
+  test: string;
+  subtest: string;
 }
 
-interface FetchDescriptorData {
+export type TestResultData = [TestDescriptor[], TestDescriptor[]];
+
+export interface ResultData {
+  type: DataType.Result;
+  result: TestResultData;
+}
+
+export interface FetchDescriptorData {
   type: DataType.FetchDescriptor;
   capabilities: Capabilities;
 }
 
-interface BrowserVersion {
+export interface BrowserVersion {
   name: string;
   data: FetchDescriptorData | ResultData;
 }
 
-interface BrowserDefinition {
+export interface BrowserDefinition {
   name: string;
   logo: string;
   versions: BrowserVersion[];
 }
 
-const TEST_FILTERS: Array<RegExp> = [
-  /-serialization.html$/,
-  /-computed.html$/,
-  /calc-evaluation.html$/,
-  /auto-scrollbars.html$/,
-
-  /container-inheritance.html$/,
-  /container-for-shadow-dom.html$/,
-  /container-units-shadow.html$/,
-  /container-longhand-animation-type.html$/,
-  /container-name-invalidation.html$/,
-  /container-name-parsing.html$/,
-  /container-parsing.html$/,
-  /container-type-containment.html$/,
-  /container-type-layout-invalidation.html$/,
-  /container-type-parsing.html$/,
-  /container-units-basic.html$/,
-  /container-units-in-at-container-fallback.html$/,
-  /container-units-invalidation.html$/,
-  /container-units-media-queries.html$/,
-  /container-units-selection.html$/,
-  /container-units-small-viewport-fallback.html$/,
-  /container-units-svglength.html$/,
-  /container-units-typed-om.html$/,
-  /deep-nested-inline-size-containers.html$/,
-  /idlharness.html$/,
-  /iframe-in-container-invalidation.html$/,
-  /iframe-invalidation.html$/,
-  /percentage-padding-orthogonal.html$/,
-  /viewport-units-dynamic.html$/,
-  /viewport-units.html$/,
-];
-
-const SUBTEST_FILTERS: Array<RegExp> = [
-  /calc\(.*\)/,
-  /max\(.*\)/,
-  /style\(.*\)/,
-  /#container width 399px after padding is applied. #second is removed from the rendering/,
-  /ex units/,
-  /ch units/,
-  /ex relative/,
-  /ch relative/,
-];
-
 const CHROME_DEFINITION: BrowserDefinition = {
   name: 'Chrome',
   logo: 'https://unpkg.com/@browser-logos/chrome@2.0.0/chrome.svg',
-  versions: Array.from({length: 104 - 79})
+  versions: Array.from({length: 105 - 79})
     .map((_, i) => 79 + i)
     .filter(version => ![82].includes(version))
     .map(version => `${version}.0`)
@@ -103,7 +68,6 @@ const CHROME_DEFINITION: BrowserDefinition = {
         capabilities: {
           'bstack:options': {
             os: 'OS X',
-            osVersion: 'Monterey',
           },
           browserName: 'Chrome',
           browserVersion: browserVersion,
@@ -170,7 +134,7 @@ const SAFARI_MACOS_DEFINITION: BrowserDefinition = {
 const EDGE_DEFINITION: BrowserDefinition = {
   name: 'Edge',
   logo: 'https://unpkg.com/@browser-logos/edge@2.0.5/edge.svg',
-  versions: Array.from({length: 104 - 80})
+  versions: Array.from({length: 105 - 80})
     .map((_, i) => 80 + i)
     .filter(version => ![82].includes(version))
     .map(version => `${version}.0`)
@@ -181,7 +145,6 @@ const EDGE_DEFINITION: BrowserDefinition = {
         capabilities: {
           'bstack:options': {
             os: 'OS X',
-            osVersion: 'Monterey',
           },
           browserName: 'Edge',
           browserVersion,
@@ -193,7 +156,7 @@ const EDGE_DEFINITION: BrowserDefinition = {
 const FIREFOX_DEFINITION: BrowserDefinition = {
   name: 'Firefox',
   logo: 'https://unpkg.com/@browser-logos/firefox@3.0.9/firefox.svg',
-  versions: Array.from({length: 103 - 69})
+  versions: Array.from({length: 105 - 69})
     .map((_, i) => 69 + i)
     .map(version => `${version}.0`)
     .map(browserVersion => ({
@@ -203,7 +166,6 @@ const FIREFOX_DEFINITION: BrowserDefinition = {
         capabilities: {
           'bstack:options': {
             os: 'OS X',
-            osVersion: 'Monterey',
           },
           browserName: 'Firefox',
           browserVersion,
@@ -212,52 +174,12 @@ const FIREFOX_DEFINITION: BrowserDefinition = {
     })),
 };
 
-const SAMSUNG_INTERNET_DEFINITION: BrowserDefinition = {
-  name: 'Samsung Internet',
-  logo: 'https://unpkg.com/@browser-logos/samsung-internet@4.0.6/samsung-internet.svg',
-  versions: [
-    '9.2',
-    '10.1',
-    '11.2',
-    '12.0',
-    '13.0',
-    '14.0',
-    '15.0',
-    '16.0',
-    '17.0',
-  ].map(browserVersion => ({
-    name: browserVersion,
-    data: {
-      type: DataType.FetchDescriptor,
-      capabilities: {
-        'bstack:options': {
-          osVersion: '12.0',
-          deviceName: 'Samsung Galaxy S22 Ultra',
-        },
-        browserName: 'samsung',
-        browserVersion,
-      },
-    },
-  })),
-};
-
-const IE_DEFINITION: BrowserDefinition = {
-  name: 'Internet Explorer',
-  logo: 'https://unpkg.com/@browser-logos/internet-explorer_9-11@1.1.16/internet-explorer_9-11.svg',
-  versions: ['9', '10', '11'].map(browserVersion => ({
-    name: browserVersion,
-    data: {type: DataType.Result, result: [0, 0]},
-  })),
-};
-
 const BROWSERS: BrowserDefinition[] = [
   CHROME_DEFINITION,
   SAFARI_IOS_DEFINITION,
   SAFARI_MACOS_DEFINITION,
   EDGE_DEFINITION,
   FIREFOX_DEFINITION,
-  SAMSUNG_INTERNET_DEFINITION,
-  IE_DEFINITION,
 ];
 
 interface Subtest {
@@ -310,22 +232,22 @@ async function getTests(manifestPath: string): Promise<TestSuite> {
   const prefix = `css/css-contain/container-queries`;
   const htmlTests =
     manifest.items.testharness.css['css-contain']['container-queries'];
-  const refTests =
-    manifest.items.reftest.css['css-contain']['container-queries'];
+  // const refTests =
+  //   manifest.items.reftest.css['css-contain']['container-queries'];
 
   const iframe: Array<[string, string]> = [];
-  Object.keys(refTests).forEach((name, id) => {
-    const data = refTests[name][1][1][0];
-    iframe.push(
-      [`ref${id}_test`, `http://web-platform.test:8000/${prefix}/${name}`],
-      [`ref${id}_match`, `http://web-platform.test:8000/${data[0]}`]
-    );
-  });
+  // Object.keys(refTests).forEach((name, id) => {
+  //   const data = refTests[name][1][1][0];
+  //   iframe.push(
+  //     [`ref${id}_test`, `http://web-platform.test:8000/${prefix}/${name}`],
+  //     [`ref${id}_match`, `http://web-platform.test:8000/${data[0]}`]
+  //   );
+  // });
 
   return {
-    js: Object.keys(htmlTests)
-      .filter(name => !TEST_FILTERS.some(filter => filter.test(name)))
-      .map(name => `http://web-platform.test:8000/${prefix}/${name}`),
+    js: Object.keys(htmlTests).map(
+      name => `http://web-platform.test:8000/${prefix}/${name}`
+    ),
     iframe,
   };
 }
@@ -350,6 +272,7 @@ function createWebDriver(capabilities: Record<string, unknown>) {
           local: true,
           debug: true,
           consoleLogs: 'verbose',
+          telemetryLogs: true,
           networkLogs: true,
           seleniumVersion: '4.1.0',
         },
@@ -383,9 +306,7 @@ async function runTestSuite(
 
     const resultsElem = await driver.wait(
       until.elementLocated(By.id('__test_results__')),
-      3 * 60 * 1000,
-      'Timed out',
-      5 * 1000
+      5 * 1000 * 60
     );
     const result = JSON.parse(await resultsElem.getAttribute('innerHTML'));
     console.info(`[${name}] Finished successfully`);
@@ -395,7 +316,6 @@ async function runTestSuite(
     throw err;
   } finally {
     try {
-      await driver.close();
       await driver.quit();
     } catch {
       // Some buggy WebDriver implementations could fail during closing,
@@ -419,8 +339,6 @@ async function main() {
   }
 
   const testSuite = await getTests(manifestPath);
-  console.info(`Using tests: ${JSON.stringify(testSuite, null, 4)}`);
-
   const tests: Array<() => Promise<void>> = [];
   const results: BrowserDefinition[] = BROWSERS.map(browser => ({
     ...browser,
@@ -434,7 +352,7 @@ async function main() {
           const results = await tryOrDefault(
             async () =>
               await retry(
-                5,
+                15,
                 async () =>
                   await runTestSuite(
                     `${browser.name} ${version.name}`,
@@ -445,20 +363,18 @@ async function main() {
             () => []
           );
 
-          let passed = 0;
-          let failed = 0;
+          const passed: TestDescriptor[] = [];
+          const failed: TestDescriptor[] = [];
 
           for (const test of results) {
+            const testURL = new URL(test[0]);
             if (Array.isArray(test) && Array.isArray(test[1].tests)) {
               for (const subtest of test[1].tests) {
-                if (SUBTEST_FILTERS.some(filter => filter.test(subtest.name))) {
-                  continue;
-                }
-                if (subtest.status === subtest.PASS) {
-                  passed++;
-                } else if (subtest.status !== subtest.PRECONDITION_FAILED) {
-                  failed++;
-                }
+                const result = {test: testURL.pathname, subtest: subtest.name};
+                const destination =
+                  subtest.status === subtest.PASS ? passed : failed;
+
+                destination.push(result);
               }
             }
           }
@@ -473,10 +389,15 @@ async function main() {
   const server = await createLocalServer();
   try {
     await eachLimit(tests, 5, async test => await test());
-    console.log(JSON.stringify(results, null, 2));
   } finally {
     await stopLocalServer(server);
   }
+
+  const output = JSON.stringify(results, null, 2);
+  await writeFile(
+    join(dirname(fileURLToPath(import.meta.url)), 'results.json'),
+    output
+  );
 }
 
 try {
