@@ -1,10 +1,10 @@
-name: Build & Test
+name: Update WPT Baseline
 
 on:
-  push:
+  workflow_dispatch:
     branches: [main]
-  pull_request:
-    types: [opened, synchronize]
+  schedule:
+    - cron: '0 0 * * 1'
 
 jobs:
   build:
@@ -13,6 +13,7 @@ jobs:
       BROWSERSTACK_USERNAME: ${{ secrets.BROWSERSTACK_USERNAME }}
       BROWSERSTACK_ACCESS_KEY: ${{ secrets.BROWSERSTACK_ACCESS_KEY }}
       WPT_MANIFEST: ${{ github.workspace }}/wpt/MANIFEST.json
+      SCHEDULED_BASELINE_DIFF: true
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
@@ -43,19 +44,20 @@ jobs:
           ./wpt/wpt manifest
           ./wpt/wpt serve --inject-script=${{ github.workspace }}/dist/container-query-polyfill.modern.js &
           npm test
-          ret=$(node --loader ts-node/esm ./tests/diff.ts)
-          npm run prettier:fix
-          cat ./tests/pr.txt >> $GITHUB_STEP_SUMMARY
-          if [ $ret == "changed" ]; then
-            exit 1
+
+      - name: Open Pull Request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ret=(node --loader ts-node/esm ./tests/diff.ts)
+          if [ $ret == "unchanged" ]; then
+            exit 0
           fi
-      - uses: actions/upload-artifact@v3
-        with:
-          name: baseline.json
-          path: ./tests/baseline.json
-        if: failure()
-      - uses: actions/upload-artifact@v3
-        with:
-          name: results.json
-          path: ./tests/results.json
-        if: failure()
+          npm run prettier:fix
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git checkout -b update-wpt-baseline-$(date +"%Y-%m-%d")
+          git add ./tests/baseline.json
+          git commit -m "Update Web Platform Test baseline"
+          git push -u origin HEAD
+          gh pr create --title "[Automated] Update Web Platform Tests" --body-file ./tests/pr.txt --label "update-baseline"
