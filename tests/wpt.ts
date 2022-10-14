@@ -202,11 +202,13 @@ type TestSuite = {
 };
 
 function createLocalServer(): Promise<Local> {
+  console.error(`access key length: ${process.env.BROWSERSTACK_ACCESS_KEY?.length}`)
   return new Promise((resolve, reject) => {
     const server = new Local();
     server.start(
       {
         key: process.env.BROWSERSTACK_ACCESS_KEY,
+        verbose: true,
       },
       err => {
         if (err) {

@@ -424,12 +424,15 @@ export function initializePolyfill() {
 
       instance = {
         connect() {
-          for (const child of node.childNodes) {
+          for (
+            let child = node.firstChild;
+            child != null;
+            child = child.nextSibling
+          ) {
             // Ensure all children are created and connected first.
             getOrCreateInstance(child);
           }
           innerController.connected();
-          scheduleUpdate();
         },
 
         disconnect() {
@@ -444,7 +447,11 @@ export function initializePolyfill() {
             inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQW);
             inlineStyles.removeProperty(CUSTOM_UNIT_VARIABLE_CQH);
           }
-          for (const child of node.childNodes) {
+          for (
+            let child = node.firstChild;
+            child != null;
+            child = child.nextSibling
+          ) {
             const instance = getInstance(child);
             instance?.disconnect();
           }
@@ -514,7 +521,11 @@ export function initializePolyfill() {
             innerController.updated();
           }
 
-          for (const child of node.childNodes) {
+          for (
+            let child = node.firstChild;
+            child != null;
+            child = child.nextSibling
+          ) {
             getOrCreateInstance(child).update(currentState);
           }
         },
@@ -525,7 +536,11 @@ export function initializePolyfill() {
 
         mutate() {
           cacheKey = Symbol();
-          for (const child of node.childNodes) {
+          for (
+            let child = node.firstChild;
+            child != null;
+            child = child.nextSibling
+          ) {
             getOrCreateInstance(child).mutate();
           }
         },
@@ -540,6 +555,7 @@ export function initializePolyfill() {
 
   documentElement.prepend(globalStyleElement, dummyElement);
   getOrCreateInstance(documentElement);
+  scheduleUpdate();
 }
 
 class NodeController<T extends Node> {
