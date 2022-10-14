@@ -207,6 +207,7 @@ function createLocalServer(): Promise<Local> {
     server.start(
       {
         key: process.env.BROWSERSTACK_ACCESS_KEY,
+        verbose: true,
       },
       err => {
         if (err) {
