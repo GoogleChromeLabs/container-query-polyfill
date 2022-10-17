@@ -12,6 +12,18 @@
  */
 
 export function initializeForWPT() {
+  // HACK: Make WPT's testharnessreport.js think that we
+  // are running in the default test environment, so that
+  // we can configure it.
+  if (!window.opener) {
+    window.opener = window;
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (window as any).testharness_properties = {
+    output: true,
+    timeout_multiplier: 20,
+  };
+
   window.addEventListener('error', e => {
     e.stopImmediatePropagation();
   });
