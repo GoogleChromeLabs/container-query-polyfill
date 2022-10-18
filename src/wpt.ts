@@ -33,7 +33,7 @@ export function initializeForWPT() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   (window as any).testharness_properties = {
     output: true,
-    timeout_multiplier: 20,
+    timeout_multiplier: 100,
   };
 
   window.addEventListener('error', e => {
