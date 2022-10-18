@@ -50,14 +50,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ret=(node --loader ts-node/esm ./tests/diff.ts)
-          if [ $ret == "unchanged" ]; then
-            exit 0
+          if [ $ret == "changed" ]; then
+            npm run prettier:fix
+            git config user.name github-actions[bot]
+            git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+            git checkout -b update-wpt-baseline-$(date +"%Y-%m-%d")
+            git add ./tests/baseline.json
+            git commit -m "Update Web Platform Test baseline"
+            git push -u origin HEAD
+            gh pr create --title "[Automated] Update Web Platform Tests" --body-file ./tests/pr.txt --label "update-baseline"
           fi
-          npm run prettier:fix
-          git config user.name github-actions[bot]
-          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git checkout -b update-wpt-baseline-$(date +"%Y-%m-%d")
-          git add ./tests/baseline.json
-          git commit -m "Update Web Platform Test baseline"
-          git push -u origin HEAD
-          gh pr create --title "[Automated] Update Web Platform Tests" --body-file ./tests/pr.txt --label "update-baseline"
