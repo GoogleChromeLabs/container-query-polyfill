@@ -62,5 +62,5 @@ jobs:
       - uses: actions/upload-artifact@v3
         with:
           name: raw.json
-          path: ./tests/raw.json
+          path: ./tests/*.raw.json
         if: failure()

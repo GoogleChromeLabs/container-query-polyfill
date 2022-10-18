@@ -310,7 +310,7 @@ async function runTestSuite(
     );
     const result = JSON.parse(await resultsElem.getAttribute('innerHTML'));
     await writeFile(
-      join(dirname(fileURLToPath(import.meta.url)), 'raw.json'),
+      join(dirname(fileURLToPath(import.meta.url)), `${name}.raw.json`),
       JSON.stringify(result, null, 2)
     );
 
