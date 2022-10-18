@@ -157,7 +157,7 @@ interface LayoutStateProvider {
   (parentState: LayoutState): LayoutState;
 }
 
-export function initializePolyfill() {
+export function initializePolyfill(updateCallback: () => void) {
   interface Instance {
     connect(): void;
     disconnect(): void;
@@ -223,6 +223,7 @@ export function initializePolyfill() {
       instance.resize();
     }
     getOrCreateInstance(documentElement).update(computeRootState());
+    updateCallback();
   });
 
   const rootController = new NodeController(documentElement);

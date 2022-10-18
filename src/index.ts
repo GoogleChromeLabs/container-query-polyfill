@@ -12,7 +12,7 @@
  */
 
 import {initializePolyfill} from './engine';
-import {initializeForWPT} from './wpt';
+import {initializeForWPT, handleUpdate} from './wpt';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (window as any).CQPolyfill = {
@@ -20,9 +20,13 @@ import {initializeForWPT} from './wpt';
 };
 
 if (!('container' in document.documentElement.style)) {
-  initializePolyfill();
-
+  let updateCallback = () => {
+    /* noop */
+  };
   if (IS_WPT_BUILD) {
     initializeForWPT();
+    updateCallback = handleUpdate;
   }
+
+  initializePolyfill(updateCallback);
 }

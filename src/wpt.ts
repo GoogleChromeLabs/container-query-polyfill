@@ -11,6 +11,18 @@
  * limitations under the License.
  */
 
+let resolveFirstRender: (() => void) | null;
+const firstRenderPromise = new Promise<void>(resolve => {
+  resolveFirstRender = resolve;
+});
+
+export function handleUpdate() {
+  if (resolveFirstRender) {
+    resolveFirstRender();
+    resolveFirstRender = null;
+  }
+}
+
 export function initializeForWPT() {
   // HACK: Make WPT's testharnessreport.js think that we
   // are running in the default test environment, so that
@@ -29,8 +41,9 @@ export function initializeForWPT() {
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (window as any).waitForPolyfill = function () {
-    return new Promise<void>(resolve => {
+  (window as any).waitForPolyfill = async function () {
+    await firstRenderPromise;
+    return await new Promise<void>(resolve => {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
           requestAnimationFrame(() => {
