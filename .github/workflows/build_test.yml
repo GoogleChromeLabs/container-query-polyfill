@@ -59,3 +59,8 @@ jobs:
           name: results.json
           path: ./tests/results.json
         if: failure()
+      - uses: actions/upload-artifact@v3
+        with:
+          name: raw.json
+          path: ./tests/raw.json
+        if: failure()

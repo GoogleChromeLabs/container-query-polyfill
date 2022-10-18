@@ -309,6 +309,11 @@ async function runTestSuite(
       5 * 1000 * 60
     );
     const result = JSON.parse(await resultsElem.getAttribute('innerHTML'));
+    await writeFile(
+      join(dirname(fileURLToPath(import.meta.url)), 'raw.json'),
+      JSON.stringify(result, null, 2)
+    );
+
     console.info(`[${name}] Finished successfully`);
     return result;
   } catch (err) {
