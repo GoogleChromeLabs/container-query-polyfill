@@ -87,7 +87,7 @@ const CUSTOM_UNIT_MAP: Record<string, string> = {
   cqb: CUSTOM_UNIT_VARIABLE_CQB,
 };
 
-const SUPPORTS_WHERE_PSEUDO_CLASS = CSS.supports('selector(:where())');
+const SUPPORTS_WHERE_PSEUDO_CLASS = CSS.supports('selector(:where(div))');
 const NO_WHERE_SELECTOR = ':not(.container-query-polyfill)';
 const NO_WHERE_SELECTOR_TOKENS = parseComponentValue(
   Array.from(tokenize(NO_WHERE_SELECTOR))
