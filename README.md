@@ -2,7 +2,7 @@
 
 *This repo is based on https://github.com/GoogleChromeLabs/container-query-polyfill with the added enhancement for shadow dom/web components.*
 
-If you find this work helpful, consider buying me a coffee.
+If you find this work helpful please consider buying me a coffee.
 <br/>
 <a href="https://www.buymeacoffee.com/marshal27" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
 ____________________________
