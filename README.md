@@ -1,6 +1,10 @@
 # Shadow Container Query Polyfill
 
 *This repo is based on https://github.com/GoogleChromeLabs/container-query-polyfill with the added enhancement for shadow dom/web components.*
+
+If you find this work helpful, consider buying me a coffee.
+<br/>
+<a href="https://www.buymeacoffee.com/marshal27" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174"></a>
 ____________________________
 
 A small (9 kB compressed) polyfill for CSS Container Queries using [`ResizeObserver`](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver) and [`MutationObserver`](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver) supporting the full [`@container`](https://drafts.csswg.org/css-contain-3/) query syntax:
