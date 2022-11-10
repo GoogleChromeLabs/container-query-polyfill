@@ -1,19 +1,19 @@
 {
-  "name": "container-query-polyfill",
-  "version": "1.0.2",
+  "name": "shadow-container-query-polyfill",
+  "version": "1.0.0",
   "description": "",
   "repository": {
     "type": "git",
-    "url": "https://github.com/GoogleChromeLabs/container-query-polyfill.git"
+    "url": "https://github.com/Marshal27/shadow-container-query-polyfill"
   },
   "type": "module",
-  "module": "dist/container-query-polyfill.modern.js",
-  "unpkg": "dist/container-query-polyfill.modern.js",
+  "module": "dist/shadow-container-query-polyfill.modern.js",
+  "unpkg": "dist/shadow-container-query-polyfill.modern.js",
   "publishConfig": {
     "source": "src/index.ts"
   },
   "exports": {
-    "default": "./dist/container-query-polyfill.modern.js"
+    "default": "./dist/shadow-container-query-polyfill.modern.js"
   },
   "files": [
     "README.md",
@@ -30,10 +30,7 @@
     "serve": "superstatic -p 9606 .",
     "test": "node --loader ts-node/esm ./tests/wpt.ts"
   },
-  "author": "Google Chrome Developers <chromium-dev@google.com>",
-  "contributors": [
-    "Surma <surma@surma.dev>"
-  ],
+  "contributors": [],
   "license": "Apache-2.0",
   "devDependencies": {
     "@types/async": "^3.2.14",

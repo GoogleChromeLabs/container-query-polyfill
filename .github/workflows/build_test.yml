@@ -1,8 +1,6 @@
 name: Build & Test
 
 on:
-  push:
-    branches: [main]
   pull_request:
     types: [opened, synchronize]
 
@@ -41,7 +39,7 @@ jobs:
         run: |
           npm run serve &
           ./wpt/wpt manifest
-          ./wpt/wpt serve --inject-script=${{ github.workspace }}/dist/container-query-polyfill.modern.js &
+          ./wpt/wpt serve --inject-script=${{ github.workspace }}/dist/shadow-container-query-polyfill.modern.js &
           npm test
           ret=$(node --loader ts-node/esm ./tests/diff.ts)
           npm run prettier:fix

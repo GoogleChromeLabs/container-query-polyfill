@@ -1,6 +1,6 @@
-# Container Query Polyfill
+# Shadow Container Query Polyfill
 
-*Please note that this polyfill is now in maintenance mode, as of Nov, 2022. We are not planning to add more features or enhancements.*
+*This repo is based on https://github.com/GoogleChromeLabs/container-query-polyfill with the added enhancement for shadow dom/web components.*
 ____________________________
 
 A small (9 kB compressed) polyfill for CSS Container Queries using [`ResizeObserver`](https://developer.mozilla.org/en-US/docs/Web/API/ResizeObserver) and [`MutationObserver`](https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver) supporting the full [`@container`](https://drafts.csswg.org/css-contain-3/) query syntax:
@@ -21,13 +21,13 @@ A small (9 kB compressed) polyfill for CSS Container Queries using [`ResizeObser
 ### Installation
 
 ```bash
-npm install --save container-query-polyfill
+npm install --save shadow-container-query-polyfill
 ```
 
 Alternatively, you can use it directly from a CDN:
 
 ```js
-<script src="https://cdn.jsdelivr.net/npm/container-query-polyfill@1/dist/container-query-polyfill.modern.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/shadow-container-query-polyfill@1/dist/shadow-container-query-polyfill.modern.js"></script>
 ```
 
 For the best user experience, it's recommended that you initially only use the polyfill for content below-the-fold and use `@supports` queries to temporarily replace it with a loading indicator until the polyfill is ready to display it:
@@ -54,7 +54,7 @@ You can view a more complete demo [here](https://codesandbox.io/s/smoosh-glitter
 
 - **CSS first**: The polyfill currently only supports `<style>` and same-origin `<link>` elements. Inline styles via the `style` attribute or CSSOM methods are not polyfilled. Likewise, JavaScript APIs like `CSSContainerRule` are not polyfilled, and APIs like `CSS.supports()` are not monkey-patched.
 - **Best effort**: Style changes that do not lead to observable DOM or layout mutations (e.g. changing `font-size` in a container without content) may not be detected, or may be detected a frame late on some browsers. [Complex sibling CSS selectors](https://github.com/GoogleChromeLabs/container-query-polyfill/issues/56) aren't supported.
-- Currently, there is no support for Shadow DOM, or functions like `calc(...)` in container conditions. Your contribution would be welcome!
+- Currently, there is no support for functions like `calc(...)` in container conditions. Your contribution would be welcome!
 
 ## Supporting browsers without `:where()`
 

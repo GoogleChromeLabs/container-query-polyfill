@@ -79,6 +79,7 @@ type LayoutState = {
 
 const INSTANCE_SYMBOL: unique symbol = Symbol('CQ_INSTANCE');
 const STYLESHEET_SYMBOL: unique symbol = Symbol('CQ_STYLESHEET');
+const SHADOW_SYMBOL: unique symbol = Symbol('CQ_SHADOW');
 const SUPPORTS_SMALL_VIEWPORT_UNITS = CSS.supports('width: 1svh');
 const VERTICAL_WRITING_MODES = new Set([
   'vertical-lr',
@@ -179,7 +180,7 @@ export function initializePolyfill(updateCallback: () => void) {
 
   const dummyElement = document.createElement(`cq-polyfill-${PER_RUN_UID}`);
   const globalStyleElement = document.createElement('style');
-  const mutationObserver = new MutationObserver(mutations => {
+  const createMutationObserver = (): MutationObserver => new MutationObserver(mutations => {
     for (const entry of mutations) {
       for (const node of entry.removedNodes) {
         const instance = getInstance(node);
@@ -210,12 +211,51 @@ export function initializePolyfill(updateCallback: () => void) {
       scheduleUpdate();
     }
   });
+  const mutationObserver = createMutationObserver();
   mutationObserver.observe(documentElement, {
     childList: true,
     subtree: true,
     attributes: true,
     attributeOldValue: true,
   });
+
+  const originalAttachShadow = Element.prototype.attachShadow;
+  Element.prototype.attachShadow = function (options) {
+    const shadow = originalAttachShadow.apply(this, [options]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (this as any)[SHADOW_SYMBOL] = shadow;
+    getOrCreateInstance(shadow);
+    return shadow;
+  }
+
+  const originalReplaceSync = CSSStyleSheet.prototype.replaceSync;
+  if (originalReplaceSync) {
+    CSSStyleSheet.prototype.replaceSync = function (options) {
+      const result = transpileStyleSheet(
+        options,
+        undefined
+      );
+      setDescriptorsForStyleSheet(this, result.descriptors);
+      const replaceSync = originalReplaceSync.apply(this, [result.source]);
+      return replaceSync;
+    }
+  }
+
+  const originalReplace = CSSStyleSheet.prototype.replace;
+  if (originalReplace) {
+    CSSStyleSheet.prototype.replace = function (options) {
+      const result = transpileStyleSheet(
+        options,
+        undefined
+      );
+      setDescriptorsForStyleSheet(this, result.descriptors);
+      const replace = originalReplace.apply(this, [result.source]);
+      return replace;
+    }
+  }
+
+  // TODO: implement monkeypatch for CSSStyleSheet.prototype.insertRule and CSSStyleSheet.prototype.deleteRule
+  // as they currently are not handled.
 
   const resizeObserver = new ResizeObserver(entries => {
     for (const entry of entries) {
@@ -358,6 +398,36 @@ export function initializePolyfill(updateCallback: () => void) {
 
   const defaultStateProvider: LayoutStateProvider = parentState => parentState;
 
+  function createShadowRootStateProvider (node: ShadowRoot) {
+    return (state: LayoutState) => {
+      const rootQueryDescriptors: ContainerConditionEntry[] = [];
+      const pushReference = (query: ContainerQueryDescriptor) => {
+        rootQueryDescriptors.push([
+          new Reference(query),
+          QueryContainerFlags.None,
+        ]);
+      }
+      for (const adoptedStyleSheet of node.adoptedStyleSheets) {
+        if (adoptedStyleSheet) {
+          for (const query of getDescriptorsForStyleSheet(adoptedStyleSheet)) {
+            pushReference(query);
+          }
+        }
+      }
+      for (const styleSheet of node.styleSheets) {
+        if (styleSheet) {
+          for (const query of getDescriptorsForStyleSheet(styleSheet)) {
+            pushReference(query);
+          }
+        }
+      }
+      return {
+        ...state,
+        conditions: rootQueryDescriptors,
+      };
+    };
+  }
+
   function getOrCreateInstance(node: Node): Instance {
     let instance = getInstance(node);
     if (!instance) {
@@ -382,6 +452,9 @@ export function initializePolyfill(updateCallback: () => void) {
               ...options,
             }),
         });
+      } else if (node instanceof ShadowRoot) {
+        innerController = new ShadowRootController(node, createMutationObserver());
+        stateProvider = createShadowRootStateProvider (node);
       } else if (node instanceof HTMLStyleElement) {
         innerController = new StyleElementController(node, {
           registerStyleSheet: options =>
@@ -529,6 +602,11 @@ export function initializePolyfill(updateCallback: () => void) {
           ) {
             getOrCreateInstance(child).update(currentState);
           }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const shadow = (node as any)[SHADOW_SYMBOL];
+          if (shadow) {
+            getOrCreateInstance(shadow).update(currentState);
+          }
         },
 
         resize() {
@@ -537,12 +615,18 @@ export function initializePolyfill(updateCallback: () => void) {
 
         mutate() {
           cacheKey = Symbol();
+          innerController.mutated();
           for (
             let child = node.firstChild;
             child != null;
             child = child.nextSibling
           ) {
             getOrCreateInstance(child).mutate();
+          }
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const shadow = (node as any)[SHADOW_SYMBOL];
+          if (shadow) {
+            getOrCreateInstance(shadow).mutate();
           }
         },
       };
@@ -575,6 +659,10 @@ class NodeController<T extends Node> {
   }
 
   updated() {
+    // Handler implemented by subclasses
+  }
+
+  mutated() {
     // Handler implemented by subclasses
   }
 }
@@ -658,6 +746,33 @@ class StyleElementController extends NodeController<HTMLStyleElement> {
 
     this.styleSheet?.dispose();
     this.styleSheet = null;
+  }
+}
+
+class ShadowRootController extends NodeController<ShadowRoot> {
+  private controller: AbortController | null = null;
+  private mo: MutationObserver;
+  private host: HTMLElement;
+
+  constructor(node: ShadowRoot, mo: MutationObserver) {
+    super(node);
+    this.mo = mo;
+    this.host = node.host as HTMLElement;
+  }
+
+  connected(): void {
+    this.mo?.observe(this.node, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeOldValue: true,
+    });
+  }
+
+  disconnected(): void {
+    this.controller?.abort();
+    this.controller = null;
+    this.mo?.disconnect();
   }
 }
 
