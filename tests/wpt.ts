@@ -232,7 +232,7 @@ async function getTests(manifestPath: string): Promise<TestSuite> {
 
   const prefix = `css/css-contain/container-queries`;
   const htmlTests =
-    manifest.items.testharness.css['css-contain']['container-queries'];
+    manifest.items.testharness.css['css-contain']['container-queries']['container-for-shadow-dom.html'];
   // const refTests =
   //   manifest.items.reftest.css['css-contain']['container-queries'];
 

@@ -24,7 +24,7 @@ jobs:
           python-version: '3.x'
       - uses: actions/checkout@v3
         with:
-          repository: devknoll/wpt
+          repository: Marshal27/wpt
           path: wpt
           ref: x-polyfill-all-tests
 
