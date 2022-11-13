@@ -398,13 +398,18 @@ export function initializePolyfill(updateCallback: () => void) {
 
   const defaultStateProvider: LayoutStateProvider = parentState => parentState;
 
-  function createShadowRootStateProvider (node: ShadowRoot) {
+  function createShadowRootStateProvider(node: ShadowRoot) {
     return (state: LayoutState) => {
       const rootQueryDescriptors: ContainerConditionEntry[] = [];
+      const computeFlag = (state: LayoutState): QueryContainerFlags => {
+        const parentState = state.parentState?.value;
+        const container = state.isQueryContainer || (parentState && computeFlag(parentState)) === QueryContainerFlags.Container;
+        return container ? QueryContainerFlags.Container : QueryContainerFlags.None;
+      }
       const pushReference = (query: ContainerQueryDescriptor) => {
         rootQueryDescriptors.push([
           new Reference(query),
-          QueryContainerFlags.None,
+          computeFlag(state),
         ]);
       }
       for (const adoptedStyleSheet of node.adoptedStyleSheets) {
@@ -454,7 +459,7 @@ export function initializePolyfill(updateCallback: () => void) {
         });
       } else if (node instanceof ShadowRoot) {
         innerController = new ShadowRootController(node, createMutationObserver());
-        stateProvider = createShadowRootStateProvider (node);
+        stateProvider = createShadowRootStateProvider(node);
       } else if (node instanceof HTMLStyleElement) {
         innerController = new StyleElementController(node, {
           registerStyleSheet: options =>
@@ -752,12 +757,10 @@ class StyleElementController extends NodeController<HTMLStyleElement> {
 class ShadowRootController extends NodeController<ShadowRoot> {
   private controller: AbortController | null = null;
   private mo: MutationObserver;
-  private host: HTMLElement;
 
   constructor(node: ShadowRoot, mo: MutationObserver) {
     super(node);
     this.mo = mo;
-    this.host = node.host as HTMLElement;
   }
 
   connected(): void {
