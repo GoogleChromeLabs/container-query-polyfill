@@ -26,7 +26,7 @@ npm install --save container-query-polyfill
 
 Alternatively, you can use it directly from a CDN:
 
-```js
+```html
 <script src="https://cdn.jsdelivr.net/npm/container-query-polyfill@1/dist/container-query-polyfill.modern.js"></script>
 ```
 
@@ -48,7 +48,7 @@ For the best user experience, it's recommended that you initially only use the p
 You can view a more complete demo [here](https://codesandbox.io/s/smoosh-glitter-m2ub4w?file=/index.html). On sufficiently fast networks and devices, or devices that natively support Container Queries, this loading indicator will never be displayed.
 
 > **Note**
-> Keep in mind that this technique effectively limits impact on FID and CLS, potentially at the expense of LCP. You may see regressions in the latter as a result, particularly on lower end devices or in poor network conditions.
+> Keep in mind that this technique effectively limits impact on <abbr title="First Input Delay">FID</abbr> and <abbr title="Cumulative Layout Shift">CLS</abbr>, potentially at the expense of <abbr title="Largest Contentful Paint">LCP</abbr>. You may see regressions in the latter as a result, particularly on lower end devices or in poor network conditions.
 
 ## Limitations
 
@@ -62,7 +62,7 @@ The polyfill uses the CSS [`:where()`](https://developer.mozilla.org/en-US/docs/
 
 <table>
 <tr>
-<td> Before </td> <td> After </td>
+<th scope="col"> Before </th> <th scope="col"> After </th>
 </tr>
 <tr>
 <td>
