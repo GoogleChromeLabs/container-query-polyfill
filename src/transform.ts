@@ -103,6 +103,17 @@ const SINGLE_COLON_PSEUDO_ELEMENTS = new Set([
   'first-letter',
 ]);
 
+function isWherePseudoClassSupported(): boolean {
+  try {
+    // Cannot rely on CSS.supports('selector(:where(div))')
+    // since it's not supported on Safari iOS < 14.5
+    document.querySelector(':where(div)');
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 function transformContainerDimensions(node: DimensionToken): Node {
   const name = node.unit;
   const variable = CUSTOM_UNIT_MAP[name];
@@ -379,7 +390,7 @@ function transformSelector(
     }
 
     if (IS_WPT_BUILD) {
-      if (!SUPPORTS_WHERE_PSEUDO_CLASS) {
+      if (!isWherePseudoClassSupported()) {
         targetSelector.push(...NO_WHERE_SELECTOR_TOKENS);
       }
     }
@@ -407,7 +418,7 @@ function transformSelector(
       },
     ];
 
-    if (!SUPPORTS_WHERE_PSEUDO_CLASS) {
+    if (!isWherePseudoClassSupported()) {
       const actual = targetSelector.map(serialize).join('');
       if (!actual.endsWith(NO_WHERE_SELECTOR)) {
         invalidSelectorCallback({
